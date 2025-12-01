@@ -1,4 +1,4 @@
-# @clin/super-ftp
+# super-ftp
 
 Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e FTPS com abstrações limpas e máximo reuso de código.
 
@@ -17,7 +17,7 @@ Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e 
 ## 📦 Instalação
 
 ```bash
-npm install @clin/super-ftp
+npm install super-ftp
 ```
 
 ## 🎯 Uso Básico
@@ -27,7 +27,7 @@ npm install @clin/super-ftp
 A forma mais simples de usar é passando uma string de conexão. O protocolo é detectado automaticamente:
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 // FTP
 const ftp = new SuperFtp('ftp://username:password@ftp.example.com:21');
@@ -54,7 +54,7 @@ await ftp.disconnect();
 Você pode passar opções avançadas como segundo parâmetro para personalizar o comportamento:
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 import * as fs from 'fs';
 
 // Sobrescrever porta e adicionar timeouts
@@ -88,19 +88,22 @@ const sftp = new SuperFtp('sftp://user:pass@host.com:22', {
 Alternativamente, você pode passar um objeto de configuração diretamente:
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
-const ftp = new SuperFtp({
-  protocol: 'ftp', // 'ftp' | 'ftps' | 'sftp'
-  host: 'ftp.example.com',
-  port: 21,
-  user: 'username',
-  password: 'password',
-}, {
-  // Opções avançadas
-  connectionTimeout: 5000,
-  commandTimeout: 10000,
-});
+const ftp = new SuperFtp(
+  {
+    protocol: 'ftp', // 'ftp' | 'ftps' | 'sftp'
+    host: 'ftp.example.com',
+    port: 21,
+    user: 'username',
+    password: 'password',
+  },
+  {
+    // Opções avançadas
+    connectionTimeout: 5000,
+    commandTimeout: 10000,
+  },
+);
 ```
 
 ## 📚 API Completa
@@ -116,6 +119,7 @@ new SuperFtp(connection: string | IConnectionConfig, advancedOptions?: IAdvanced
 ```
 
 **Parâmetros:**
+
 - `connection`: String de conexão (`ftp://user:pass@host:port`) ou objeto de configuração
 - `advancedOptions`: Opções avançadas (porta, timeouts, etc) - sobrescreve valores da string
 
@@ -202,24 +206,26 @@ await ftp.rename(oldPath: string, newPath: string): Promise<void>
 ```
 
 **Componentes:**
+
 - **Protocolos suportados**: `ftp://`, `ftps://`, `sftp://`
 - **Porta**: Opcional (usa porta padrão do protocolo se omitida)
   - FTP/FTPS: 21
   - SFTP: 22
 
 **Exemplos:**
+
 ```typescript
 // FTP padrão
-'ftp://user:pass@host.com:21'
+'ftp://user:pass@host.com:21';
 
 // SFTP padrão
-'sftp://user:pass@host.com:22'
+'sftp://user:pass@host.com:22';
 
 // FTPS com porta customizada
-'ftps://user:pass@host.com:990'
+'ftps://user:pass@host.com:990';
 
 // Sem porta (usa padrão)
-'ftp://user:pass@host.com'
+'ftp://user:pass@host.com';
 ```
 
 ## 💡 Exemplos Práticos
@@ -227,17 +233,17 @@ await ftp.rename(oldPath: string, newPath: string): Promise<void>
 ### Upload e Download Simples
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 const ftp = new SuperFtp('ftp://user:pass@host.com:21');
 
 try {
   // Upload
   await ftp.upload('./local-file.txt', '/remote/file.txt');
-  
+
   // Download
   await ftp.download('/remote/file.txt', './downloaded-file.txt');
-  
+
   // Upload com criação automática de diretório
   await ftp.upload('./file.txt', '/deep/nested/path/file.txt', {
     createDir: true,
@@ -250,7 +256,7 @@ try {
 ### Trabalhando com Buffers
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 const ftp = new SuperFtp('sftp://user:pass@host.com:22');
 
@@ -258,7 +264,7 @@ try {
   // Upload de buffer
   const data = Buffer.from('Hello, World!');
   await ftp.uploadBuffer(data, '/remote/hello.txt');
-  
+
   // Download para buffer
   const content = await ftp.downloadBuffer('/remote/hello.txt');
   console.log(content.toString()); // "Hello, World!"
@@ -270,23 +276,23 @@ try {
 ### Listagem e Navegação
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 const ftp = new SuperFtp('ftp://user:pass@host.com:21');
 
 try {
   // Listar arquivos
   const files = await ftp.list('/remote/path');
-  files.forEach(file => {
+  files.forEach((file) => {
     console.log(`${file.type === 'directory' ? '📁' : '📄'} ${file.name} (${file.size} bytes)`);
   });
-  
+
   // Verificar se arquivo existe
   if (await ftp.exists('/remote/important.txt')) {
     const info = await ftp.getFileInfo('/remote/important.txt');
     console.log(`Arquivo encontrado: ${info?.size} bytes`);
   }
-  
+
   // Navegar diretórios
   await ftp.cwd('/remote/subdirectory');
   const currentDir = await ftp.pwd();
@@ -299,14 +305,14 @@ try {
 ### Operações Recursivas
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 const ftp = new SuperFtp('sftp://user:pass@host.com:22');
 
 try {
   // Criar estrutura de diretórios
   await ftp.mkdir('/deep/nested/directory/structure', true);
-  
+
   // Remover diretório e todo seu conteúdo
   await ftp.rmdir('/old/directory', true);
 } finally {
@@ -317,7 +323,7 @@ try {
 ### Tratamento de Erros
 
 ```typescript
-import { SuperFtp } from '@clin/super-ftp';
+import { SuperFtp } from 'super-ftp';
 
 const ftp = new SuperFtp('ftp://user:pass@host.com:21');
 
@@ -360,6 +366,7 @@ A biblioteca segue princípios SOLID e DRY para máxima reutilização:
 ```
 
 **Componentes:**
+
 - **Interfaces** (`IFtpClient`): Define contratos comuns para todos os protocolos
 - **Adaptadores** (`FtpAdapter`, `SftpAdapter`): Implementações específicas por protocolo
 - **BaseAdapter**: Classe abstrata com lógica compartilhada
@@ -425,6 +432,7 @@ super-ftp-lib/
 5. Abra um Pull Request
 
 **Formato de Commits:**
+
 - `feat:` Nova funcionalidade
 - `fix:` Correção de bug
 - `docs:` Documentação
@@ -442,6 +450,7 @@ A biblioteca mantém alta cobertura de testes:
 - **Lines**: 84.23%
 
 Total de **150+ testes** cobrindo:
+
 - ✅ Todos os métodos públicos
 - ✅ Casos de sucesso e erro
 - ✅ Edge cases e validações

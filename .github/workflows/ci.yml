@@ -15,8 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node with Clean
-        uses: ./.github/actions/setup-node-with-clean
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci --ignore-scripts --prefer-online
@@ -56,8 +59,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node with Clean
-        uses: ./.github/actions/setup-node-with-clean
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: Install commitlint
         run: |
