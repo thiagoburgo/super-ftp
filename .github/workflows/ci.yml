@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node with Clean
+        uses: ./.github/actions/setup-node-with-clean
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --prefer-online
+
+      - name: Run ESLint
+        run: npm run lint:check
+
+      - name: Check formatting
+        run: npm run format -- --check
+
+      - name: Run tests with coverage
+        run: npm run test:cov
+
+      - name: Build project
+        run: npm run build
+
+      - name: Validate build artifacts
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed: dist directory not found"
+            exit 1
+          fi
+          if [ ! -f "dist/index.js" ]; then
+            echo "❌ Build failed: index.js not found"
+            exit 1
+          fi
+          echo "✅ Build artifacts validated"
+
+  conventional-commits:
+    name: Validate Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node with Clean
+        uses: ./.github/actions/setup-node-with-clean
+
+      - name: Install commitlint
+        run: |
+          npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate commits
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --config commitlint.config.js --verbose
+

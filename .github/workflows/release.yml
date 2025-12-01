@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    environment: production # Será configurado após criar o environment no GitHub
+    env:
+      # Variáveis compostas - simplifica uso e manutenção
+      CA_DOMAIN: ${{ vars.CODEARTIFACT_DOMAIN }}
+      CA_REPO: ${{ vars.CODEARTIFACT_REPOSITORY }}
+      CA_OWNER: ${{ secrets.CODEARTIFACT_DOMAIN_OWNER }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node with Clean
+        uses: ./.github/actions/setup-node-with-clean
+
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-aws-secrets
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Debug AWS Configuration
+        run: |
+          echo "🔧 AWS Region: $AWS_REGION"
+          echo "🔧 CodeArtifact Domain: $CA_DOMAIN"
+          echo "🔧 CodeArtifact Repository: $CA_REPO"
+          echo "🔧 Environment: production"
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --ignore-scripts --prefer-online
+
+      - name: Build and test
+        run: |
+          npm run build
+          npm run test:ci
+
+      - name: Configure AWS and CodeArtifact
+        uses: ./.github/actions/configure-aws-codeartifact
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Verify npm registry configuration
+        shell: bash
+        run: |
+          echo "🔧 Verificando configuração do npm registry..."
+          echo "📋 .npmrc atual:"
+          cat .npmrc
+          echo ""
+          npm config get registry
+          echo ""
+          npm config get @clin:registry
+
+      - name: Semantic Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: "dummy"  # Necessário para o plugin npm, mas não será usado pois já autenticamos via aws codeartifact login
+        run: |
+          echo "🚀 Executando semantic-release..."
+          npx semantic-release
+
+      - name: Verify CodeArtifact Publication
+        if: success()
+        run: |
+          echo "✅ Package successfully published to CodeArtifact"
+          echo "📦 Version: $(npm view @clin/super-ftp version)"
+

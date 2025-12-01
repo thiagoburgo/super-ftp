@@ -1,0 +1,30 @@
+name: 'Setup Node with Clean'
+description: 'Setup Node.js and clean npm cache/config to avoid authentication issues'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+    
+    - name: Clean npm cache and config
+      shell: bash
+      run: |
+        echo "🧹 Cleaning npm cache and config..."
+        
+        # Limpar cache
+        npm cache clean --force
+        
+        # Remover configurações globais do usuário
+        # O arquivo .npmrc do projeto será preservado e usado
+        rm -f ~/.npmrc || true
+        rm -f /home/runner/.npmrc || true
+        rm -f /root/.npmrc || true
+        
+        # Verificar qual registry será usado (deve vir do .npmrc do projeto)
+        echo "📋 Registry configurado: $(npm config get registry)"
+        
+        echo "✅ npm cache and config cleaned"
+
