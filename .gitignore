@@ -3,6 +3,7 @@
 /node_modules
 *.js
 *.d.ts
+!src/types/**/*.d.ts
 *.js.map
 !jest.config.js
 !.eslintrc.js

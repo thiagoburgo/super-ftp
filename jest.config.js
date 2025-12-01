@@ -6,9 +6,7 @@ module.exports = {
     '^.+\\.(t|j)s$': [
       'ts-jest',
       {
-        tsconfig: {
-          types: ['jest', 'node'],
-        },
+        tsconfig: 'test/tsconfig.json',
       },
     ],
   },

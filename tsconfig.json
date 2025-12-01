@@ -16,9 +16,9 @@
     "useUnknownInCatchVariables": false,
     "types": ["node"],
     "lib": ["ES2021"],
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/types/**/*.d.ts"],
   "exclude": ["node_modules", "**/*.spec.ts", "test", "dist"]
 }
-
