@@ -61,6 +61,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Verify NPM_TOKEN is set
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "❌ NPM_TOKEN secret is not configured"
+            echo "Please add NPM_TOKEN to GitHub Secrets:"
+            echo "1. Go to https://github.com/thiagoburgo/super-ftp/settings/secrets/actions"
+            echo "2. Click 'New repository secret'"
+            echo "3. Name: NPM_TOKEN"
+            echo "4. Value: Your npm access token"
+            exit 1
+          fi
+          echo "✅ NPM_TOKEN is configured"
+
       - name: Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
