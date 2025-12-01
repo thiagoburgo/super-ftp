@@ -1,6 +1,6 @@
 {
   "branches": ["main"],
-  "repositoryUrl": "https://github.com/thiagoburgo/super-ftp",
+  "repositoryUrl": "https://github.com/thiagoburgo/super-ftp.git",
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
