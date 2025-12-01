@@ -83,7 +83,7 @@ export class SftpAdapter extends BaseAdapter {
       const remotePath = path ? this.normalizePath(path) : '.';
       const files = await this.client.list(remotePath);
 
-      return files.map((file) => this.mapFileInfo(file, remotePath));
+      return files.map((file: any) => this.mapFileInfo(file, remotePath));
     } catch (error: any) {
       throw new Error(`Failed to list directory: ${error.message}`);
     }
