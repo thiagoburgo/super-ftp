@@ -15,7 +15,6 @@ O GitHub Free plan não permite configurar bypass automático para `github-actio
    - **Expiration**: Escolha uma data (ou "No expiration" para tokens de longa duração)
    - **Scopes**: Marque:
      - ✅ `repo` (acesso completo ao repositório)
-     - ✅ `workflow` (se disponível)
 
 4. Clique em **"Generate token"**
 5. **Copie o token imediatamente** (você não poderá vê-lo novamente)
@@ -25,7 +24,7 @@ O GitHub Free plan não permite configurar bypass automático para `github-actio
 1. Acesse: `https://github.com/thiagoburgo/super-ftp/settings/secrets/actions`
 2. Clique em **"New repository secret"**
 3. Configure:
-   - **Name**: `GITHUB_TOKEN_RELEASE`
+   - **Name**: `RELEASE_TOKEN` ⚠️ **Importante**: Não use `GITHUB_TOKEN_*` (reservado pelo GitHub)
    - **Secret**: Cole o token que você copiou
 4. Clique em **"Add secret"**
 
@@ -43,10 +42,12 @@ Na configuração de branch protection para `main`:
 
 ### Como funciona
 
-- O workflow `release.yml` tentará usar `GITHUB_TOKEN_RELEASE` primeiro
+- O workflow `release.yml` tentará usar `RELEASE_TOKEN` primeiro
 - Se não existir, usará `GITHUB_TOKEN` (fallback)
 - O PAT tem permissões de bypass, permitindo commits diretos do semantic-release
 - PRs de desenvolvedores ainda precisarão de aprovação
+
+⚠️ **Nota**: O nome do secret é `RELEASE_TOKEN` (não `GITHUB_TOKEN_RELEASE`) porque variáveis que começam com `GITHUB_` são reservadas pelo GitHub Actions.
 
 ## Alternativa: Desabilitar proteção de PR temporariamente
 
