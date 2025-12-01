@@ -1,6 +1,6 @@
 {
   "name": "super-ftp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e FTPS com abstrações limpas e máximo reuso de código",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
