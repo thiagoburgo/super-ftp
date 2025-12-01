@@ -1,0 +1,94 @@
+{
+  "name": "@clin/super-ftp",
+  "version": "0.1.0",
+  "description": "Biblioteca reutilizável para gerenciamento de FTP, SFTP e FTPS com abstrações e máximo reuso de código",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:ci": "jest --coverage --watchAll=false",
+    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,test}/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "precommit": "lint-staged",
+    "prepush": "npm run build && npm run test:ci",
+    "prepublishOnly": "npm run build",
+    "semantic-release": "semantic-release"
+  },
+  "keywords": [
+    "ftp",
+    "sftp",
+    "ftps",
+    "file-transfer",
+    "file-management",
+    "basic-ftp",
+    "ssh2-sftp-client",
+    "typescript"
+  ],
+  "author": "Clin Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clin-digital-tech/super-ftp-lib.git"
+  },
+  "bugs": {
+    "url": "https://github.com/clin-digital-tech/super-ftp-lib/issues"
+  },
+  "homepage": "https://github.com/clin-digital-tech/super-ftp-lib#readme",
+  "dependencies": {
+    "basic-ftp": "^5.0.3",
+    "ssh2-sftp-client": "^10.0.3"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^29.7.0",
+    "prettier": "^3.4.0",
+    "rimraf": "^6.0.1",
+    "semantic-release": "^24.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "test/**/*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  }
+}
+

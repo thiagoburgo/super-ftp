@@ -1,0 +1,43 @@
+# Arquivos de desenvolvimento
+src/
+test/
+examples/
+scripts/
+docs/
+
+# Configuração
+.github/
+.vscode/
+.eslintrc.js
+.prettierrc
+.nvmrc
+jest.config.js
+tsconfig.json
+tsconfig.build.json
+commitlint.config.js
+.releaserc.json
+
+# Documentação de dev
+ARCHITECTURE.md
+ROADMAP.md
+CONTRIBUTING.md
+
+# Git
+.git/
+.gitignore
+
+# Coverage e testes
+coverage/
+*.spec.ts
+*.test.ts
+
+# Build
+node_modules/
+*.log
+npm-debug.log*
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~
