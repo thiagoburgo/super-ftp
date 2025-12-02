@@ -8,6 +8,7 @@
 !jest.config.js
 !.eslintrc.js
 !commitlint.config.js
+!scripts/**/*.js
 
 # Logs
 logs

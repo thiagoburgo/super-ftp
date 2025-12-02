@@ -21,7 +21,8 @@
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,test}/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "precommit": "lint-staged",
+    "check-credentials": "node scripts/check-credentials-secretlint.js",
+    "precommit": "npm run check-credentials && lint-staged",
     "prepush": "npm run build && npm run test:ci",
     "prepublishOnly": "npm run build",
     "semantic-release": "semantic-release"
@@ -56,6 +57,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.5.11",
@@ -70,6 +72,7 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.4.0",
     "rimraf": "^6.0.1",
+    "secretlint": "^11.2.5",
     "semantic-release": "^24.0.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
