@@ -198,4 +198,9 @@ export interface ISftpConfig extends IConnectionConfig {
    * Se deve verificar o host
    */
   strictVendor?: boolean;
+  /**
+   * Função para verificar a chave do host (retorna true para aceitar)
+   * Útil para aceitar automaticamente chaves desconhecidas em testes
+   */
+  hostVerifier?: (keyHash: string) => boolean;
 }

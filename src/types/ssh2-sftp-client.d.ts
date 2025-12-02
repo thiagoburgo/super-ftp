@@ -24,6 +24,7 @@ declare module 'ssh2-sftp-client' {
     };
     strictVendor?: boolean;
     readyTimeout?: number;
+    hostVerifier?: (keyHash: string) => boolean;
   }
 
   class SftpClient {
@@ -38,8 +39,8 @@ declare module 'ssh2-sftp-client' {
     rmdir(path: string, recursive: boolean): Promise<void>;
     delete(path: string): Promise<void>;
     rename(oldPath: string, newPath: string): Promise<void>;
-    cwd(path: string): Promise<void>;
-    pwd(): Promise<string>;
+    cwd(path?: string): Promise<string | void>;
+    realPath(remotePath: string): Promise<string>;
   }
 
   export = SftpClient;

@@ -51,11 +51,20 @@ export class SftpAdapter extends BaseAdapter {
         connectionConfig.strictVendor = this.config.strictVendor;
       }
 
+      if (this.config.hostVerifier) {
+        connectionConfig.hostVerifier = this.config.hostVerifier;
+      }
+
+      // Habilitar keyboard-interactive authentication
+      // Necessário para servidores OpenSSH que usam este método de autenticação
+      connectionConfig.tryKeyboard = true;
+
       await this.client.connect(connectionConfig);
       this.connected = true;
     } catch (error: any) {
       this.connected = false;
-      throw new Error(`Failed to connect to SFTP server: ${error.message}`);
+      const errorMessage = error.message || String(error);
+      throw new Error(`Failed to connect to SFTP server: ${errorMessage}`);
     }
   }
 
@@ -199,12 +208,22 @@ export class SftpAdapter extends BaseAdapter {
     try {
       const normalizedPath = this.normalizePath(path);
 
+      // Se o caminho não começa com /, é relativo - usar como está
+      // O ssh2-sftp-client resolve caminhos relativos a partir do diretório atual
+      const isAbsolute = normalizedPath.startsWith('/');
+
       if (recursive) {
         const parts = normalizedPath.split('/').filter((p) => p);
         let currentPath = '';
 
         for (const part of parts) {
-          currentPath = currentPath ? `${currentPath}/${part}` : `/${part}`;
+          if (isAbsolute) {
+            // Caminho absoluto: construir a partir da raiz
+            currentPath = currentPath ? `${currentPath}/${part}` : `/${part}`;
+          } else {
+            // Caminho relativo: construir a partir do diretório atual
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+          }
           try {
             await this.client.mkdir(currentPath, true);
           } catch (error: any) {
@@ -230,8 +249,25 @@ export class SftpAdapter extends BaseAdapter {
     try {
       const normalizedPath = this.normalizePath(path);
 
+      // Verificar se o diretório existe antes de tentar remover
+      const exists = await this.exists(normalizedPath);
+      if (!exists) {
+        // Diretório não existe, nada a fazer
+        return;
+      }
+
       if (recursive) {
-        const files = await this.list(normalizedPath);
+        let files;
+        try {
+          files = await this.list(normalizedPath);
+        } catch (error: any) {
+          // Se não conseguir listar, o diretório pode não existir mais
+          if (error.message.includes('No such file')) {
+            return;
+          }
+          throw error;
+        }
+
         for (const file of files) {
           const fullPath = `${normalizedPath}/${file.name}`;
           if (file.type === 'directory') {
@@ -244,6 +280,10 @@ export class SftpAdapter extends BaseAdapter {
 
       await this.client.rmdir(normalizedPath, false);
     } catch (error: any) {
+      // Se o diretório não existe, não é um erro
+      if (error.message.includes('No such file')) {
+        return;
+      }
       throw new Error(`Failed to remove directory: ${error.message}`);
     }
   }
@@ -279,13 +319,22 @@ export class SftpAdapter extends BaseAdapter {
 
   /**
    * Altera o diretório de trabalho
+   * NOTA: SFTP não suporta mudança de diretório de trabalho como FTP tradicional.
+   * Este método verifica se o diretório existe, mas não muda efetivamente o "working directory".
+   * Para operações SFTP, use caminhos absolutos ou relativos diretamente.
    */
   async cwd(path: string): Promise<void> {
     this.ensureConnected();
 
     try {
       const normalizedPath = this.normalizePath(path);
-      await this.client.cwd(normalizedPath);
+      // Verificar se o diretório existe
+      const exists = await this.exists(normalizedPath);
+      if (!exists) {
+        throw new Error(`Directory does not exist: ${normalizedPath}`);
+      }
+      // SFTP não mantém working directory, então apenas validamos
+      // O ssh2-sftp-client não tem método para mudar diretório
     } catch (error: any) {
       throw new Error(`Failed to change directory: ${error.message}`);
     }
@@ -298,7 +347,9 @@ export class SftpAdapter extends BaseAdapter {
     this.ensureConnected();
 
     try {
-      return await this.client.pwd();
+      // ssh2-sftp-client: cwd() sem parâmetros retorna o diretório atual como string
+      const currentPath = await (this.client.cwd() as Promise<string>);
+      return currentPath || '/';
     } catch (error: any) {
       throw new Error(`Failed to get current directory: ${error.message}`);
     }

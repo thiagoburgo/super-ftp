@@ -26,6 +26,7 @@ export interface IAdvancedOptions {
     hmac?: string[];
   };
   strictVendor?: boolean;
+  hostVerifier?: (keyHash: string) => boolean;
 }
 
 /**
