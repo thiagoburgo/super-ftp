@@ -1,3 +1,12 @@
+## 1.1.0 (2025-12-02)
+
+* fix: configurar test:ci para rodar apenas testes unitários ([f4b67ae](https://github.com/thiagoburgo/super-ftp/commit/f4b67ae))
+* feat: implementar secretlint para verificação de credenciais ([b8da499](https://github.com/thiagoburgo/super-ftp/commit/b8da499))
+* feat(sftp): melhorias no adapter SFTP para suporte completo de operações ([838f87b](https://github.com/thiagoburgo/super-ftp/commit/838f87b))
+* test(sftp): adiciona testes de integração completos para SFTP ([d2a9922](https://github.com/thiagoburgo/super-ftp/commit/d2a9922))
+* chore: sync develop with main - include release v1.0.0 and docs ([c0120f0](https://github.com/thiagoburgo/super-ftp/commit/c0120f0))
+* docs: adicionar guia de troubleshooting para NPM_TOKEN ([d655911](https://github.com/thiagoburgo/super-ftp/commit/d655911))
+
 ## 1.0.0 (2025-12-01)
 
 * fix: adicionar --omit=optional no npm ci para evitar erro com fsevents ([3690cb5](https://github.com/thiagoburgo/super-ftp/commit/3690cb5))
