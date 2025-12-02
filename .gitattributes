@@ -1,0 +1,13 @@
+# Normalizar line endings para LF em todos os arquivos de código
+* text=auto eol=lf
+
+# Garantir que arquivos binários não sejam convertidos
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+
