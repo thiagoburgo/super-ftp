@@ -6,6 +6,7 @@
 !src/types/**/*.d.ts
 *.js.map
 !jest.config.js
+!jest.config.ci.js
 !.eslintrc.js
 !commitlint.config.js
 !scripts/**/*.js

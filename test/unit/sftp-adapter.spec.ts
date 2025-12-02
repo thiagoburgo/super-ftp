@@ -308,25 +308,31 @@ describe('SftpAdapter', () => {
     it('should remove directory', async () => {
       // Arrange
       await adapter.connect();
+      // Mock exists() para retornar true (diretório existe)
+      mockSftpClient.stat.mockResolvedValue({ isDirectory: true } as any);
       mockSftpClient.list.mockResolvedValue([]);
 
       // Act
       await adapter.rmdir('/dir');
 
       // Assert
+      expect(mockSftpClient.stat).toHaveBeenCalledWith('/dir');
       expect(mockSftpClient.rmdir).toHaveBeenCalledWith('/dir', false);
     });
 
     it('should remove directory recursively', async () => {
       // Arrange
       await adapter.connect();
-      mockSftpClient.list.mockResolvedValue([{ name: 'file.txt', type: 'f' }] as any);
+      // Mock exists() para retornar true (diretório existe)
+      mockSftpClient.stat.mockResolvedValue({ isDirectory: true } as any);
+      mockSftpClient.list.mockResolvedValue([{ name: 'file.txt', type: 'file' }] as any);
 
       // Act
       await adapter.rmdir('/dir', true);
 
       // Assert
-      expect(mockSftpClient.list).toHaveBeenCalled();
+      expect(mockSftpClient.stat).toHaveBeenCalledWith('/dir');
+      expect(mockSftpClient.list).toHaveBeenCalledWith('/dir');
       expect(mockSftpClient.delete).toHaveBeenCalled();
       expect(mockSftpClient.rmdir).toHaveBeenCalled();
     });
@@ -362,12 +368,15 @@ describe('SftpAdapter', () => {
     it('should change working directory', async () => {
       // Arrange
       await adapter.connect();
+      // Mock exists() para retornar true (diretório existe)
+      mockSftpClient.stat.mockResolvedValue({ isDirectory: true } as any);
 
       // Act
       await adapter.cwd('/new/path');
 
       // Assert
-      expect(mockSftpClient.cwd).toHaveBeenCalledWith('/new/path');
+      expect(mockSftpClient.stat).toHaveBeenCalledWith('/new/path');
+      // cwd apenas valida que o diretório existe, não chama cwd() do client
     });
   });
 
@@ -375,13 +384,14 @@ describe('SftpAdapter', () => {
     it('should get current working directory', async () => {
       // Arrange
       await adapter.connect();
-      mockSftpClient.pwd.mockResolvedValue('/current/path');
+      // pwd() usa client.cwd() sem parâmetros, que retorna uma Promise<string>
+      mockSftpClient.cwd.mockResolvedValue('/current/path');
 
       // Act
       const result = await adapter.pwd();
 
       // Assert
-      expect(mockSftpClient.pwd).toHaveBeenCalled();
+      expect(mockSftpClient.cwd).toHaveBeenCalledWith();
       expect(result).toBe('/current/path');
     });
   });
