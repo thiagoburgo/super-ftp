@@ -386,23 +386,41 @@ A biblioteca segue princípios SOLID e DRY para máxima reutilização:
 # Instalar dependências
 npm install
 
-# Executar testes
+# Executar todos os testes
 npm test
 
-# Executar testes com cobertura
+# Executar testes unitários
+npm run test:unit
+
+# Executar testes com cobertura (usado no CI)
 npm run test:cov
+
+# Executar testes de integração (requer servidor SFTP)
+npm run test:integration
+
+# Executar todos os testes (unitários + integração)
+npm run test:all
+
+# Executar testes em modo watch
+npm run test:watch
 
 # Build do projeto
 npm run build
 
-# Lint do código
+# Build em modo watch
+npm run build:watch
+
+# Lint do código (com correção automática)
 npm run lint
+
+# Verificar lint sem corrigir
+npm run lint:check
 
 # Formatação do código
 npm run format
 
-# Verificar formatação
-npm run format:check
+# Verificar credenciais antes do commit
+npm run check-credentials
 ```
 
 ### Estrutura do Projeto
@@ -417,9 +435,11 @@ super-ftp-lib/
 │   ├── utils/             # Utilitários (parser, etc)
 │   └── super-ftp.ts      # Classe principal
 ├── test/
-│   └── unit/             # Testes unitários
+│   ├── unit/             # Testes unitários
+│   └── integration/      # Testes de integração (requer servidor real)
+├── scripts/              # Scripts auxiliares (verificação de credenciais)
 ├── .github/
-│   └── workflows/        # CI/CD
+│   └── workflows/        # CI/CD (Quality Checks e Release)
 └── dist/                 # Build output
 ```
 
@@ -431,14 +451,169 @@ super-ftp-lib/
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
 
-**Formato de Commits:**
+#### Formato de Commits (Conventional Commits)
 
-- `feat:` Nova funcionalidade
-- `fix:` Correção de bug
-- `docs:` Documentação
-- `test:` Testes
-- `refactor:` Refatoração
-- `chore:` Manutenção
+O projeto usa [Conventional Commits](https://www.conventionalcommits.org/) para versionamento automático via [semantic-release](https://semantic-release.gitbook.io/).
+
+**Estrutura do commit:**
+
+```
+<tipo>(<escopo>): <descrição>
+
+[corpo opcional]
+
+[rodapé opcional]
+```
+
+**Tipos de Commit:**
+
+##### ✅ Tipos que **GERAM** nova versão:
+
+- **`feat:`** Nova funcionalidade → Gera versão **minor** (1.0.0 → 1.1.0)
+
+  ```bash
+  git commit -m "feat: adicionar suporte a upload de múltiplos arquivos"
+  ```
+
+- **`fix:`** Correção de bug → Gera versão **patch** (1.0.0 → 1.0.1)
+
+  ```bash
+  git commit -m "fix: corrigir timeout em conexões SFTP"
+  ```
+
+- **`perf:`** Melhoria de performance → Gera versão **patch** (1.0.0 → 1.0.1)
+
+  ```bash
+  git commit -m "perf: otimizar upload de arquivos grandes"
+  ```
+
+- **`refactor:`** Refatoração → Gera versão **patch** (1.0.0 → 1.0.1)
+
+  ```bash
+  git commit -m "refactor: simplificar lógica de conexão"
+  ```
+
+- **`revert:`** Reversão de commit → Gera versão **patch** (1.0.0 → 1.0.1)
+
+  ```bash
+  git commit -m "revert: reverter mudança que causou regressão"
+  ```
+
+- **`BREAKING CHANGE:`** Mudança que quebra compatibilidade → Gera versão **major** (1.0.0 → 2.0.0)
+
+  ```bash
+  git commit -m "feat: alterar assinatura do método upload
+
+  BREAKING CHANGE: método upload agora requer parâmetro adicional"
+  ```
+
+##### ❌ Tipos que **NÃO geram** nova versão:
+
+- **`chore:`** Manutenção, configuração, dependências
+
+  ```bash
+  git commit -m "chore: atualizar dependências"
+  git commit -m "chore: ajustar scripts de teste"
+  ```
+
+- **`docs:`** Apenas documentação
+
+  ```bash
+  git commit -m "docs: atualizar README com novos exemplos"
+  ```
+
+- **`style:`** Formatação, espaçamento, ponto-e-vírgula
+
+  ```bash
+  git commit -m "style: corrigir formatação do código"
+  ```
+
+- **`test:`** Apenas testes
+
+  ```bash
+  git commit -m "test: adicionar testes para novo método"
+  ```
+
+- **`build:`** Mudanças no sistema de build
+
+  ```bash
+  git commit -m "build: atualizar configuração do TypeScript"
+  ```
+
+- **`ci:`** Mudanças em CI/CD
+  ```bash
+  git commit -m "ci: adicionar novo step no workflow"
+  ```
+
+#### Automações e Hooks
+
+O projeto possui várias automações para garantir qualidade e segurança:
+
+##### 🔒 Pre-commit Hook
+
+Antes de cada commit, são executados automaticamente:
+
+1. **Verificação de credenciais** (`secretlint`)
+   - Detecta senhas, tokens, API keys hardcoded
+   - Bloqueia commits com credenciais suspeitas
+   - Ignora exemplos genéricos e documentação
+
+2. **Lint e formatação** (`lint-staged`)
+   - Executa ESLint e Prettier nos arquivos staged
+   - Corrige automaticamente problemas de formatação
+
+##### 🚀 Pre-push Hook
+
+Antes de cada push, são executados automaticamente:
+
+1. **Build do projeto** (`npm run build`)
+   - Compila TypeScript para JavaScript
+   - Valida que não há erros de compilação
+
+2. **Testes unitários** (`npm run test:cov`)
+   - Roda todos os testes unitários
+   - Gera relatório de cobertura
+   - **Bloqueia push se testes falharem**
+
+##### 🔍 CI/CD Pipeline
+
+O projeto possui dois workflows no GitHub Actions:
+
+1. **Quality Checks** (PRs e pushes para `develop`)
+   - ESLint
+   - Prettier (verificação de formatação)
+   - Testes unitários com cobertura
+   - Build e validação de artefatos
+   - Validação de Conventional Commits (em PRs)
+
+2. **Release** (pushes para `main`)
+   - Executa todos os Quality Checks
+   - Analisa commits com semantic-release
+   - Gera nova versão (se houver commits que gerem versão)
+   - Atualiza CHANGELOG.md
+   - Publica no npm
+   - Cria GitHub Release
+
+#### Scripts de Teste
+
+```bash
+# Testes unitários (usado no CI e pre-push)
+npm run test:unit
+
+# Testes com cobertura (usado no CI)
+npm run test:cov
+
+# Testes de integração (requer servidor SFTP real)
+npm run test:integration
+
+# Todos os testes (unitários + integração)
+npm run test:all
+
+# Testes em modo watch
+npm run test:watch
+```
+
+**Nota:** Testes de integração não rodam automaticamente no CI. Eles devem ser executados manualmente quando necessário.
 
 ## 📊 Cobertura de Testes
 
