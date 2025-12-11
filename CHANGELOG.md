@@ -1,3 +1,13 @@
+## <small>1.1.1 (2025-12-11)</small>
+
+* fix: optimize npm package by excluding unnecessary files ([5867e26](https://github.com/thiagoburgo/super-ftp/commit/5867e26))
+* chore: ajustar scripts de teste para excluir integration do CI ([60acb5f](https://github.com/thiagoburgo/super-ftp/commit/60acb5f))
+* chore: configurar line endings para LF ([ab03560](https://github.com/thiagoburgo/super-ftp/commit/ab03560))
+* chore: merge develop into main - add bilingual docs and npm visibility improvements ([ffcf22a](https://github.com/thiagoburgo/super-ftp/commit/ffcf22a))
+* docs: add bilingual documentation (EN/PT-BR) and improve npm visibility ([6c46d5d](https://github.com/thiagoburgo/super-ftp/commit/6c46d5d))
+* docs: adicionar documentação sobre tipos de commit e automações ([69554e2](https://github.com/thiagoburgo/super-ftp/commit/69554e2))
+* Merge branch 'develop' ([3990c20](https://github.com/thiagoburgo/super-ftp/commit/3990c20))
+
 ## 1.1.0 (2025-12-02)
 
 * fix: configurar test:ci para rodar apenas testes unitários ([f4b67ae](https://github.com/thiagoburgo/super-ftp/commit/f4b67ae))
