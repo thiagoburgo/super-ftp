@@ -8,7 +8,7 @@ import { DEFAULT_PORTS, DEFAULT_TIMEOUTS } from '../constants';
  */
 export class SftpAdapter extends BaseAdapter {
   private client: SftpClient;
-  private config: ISftpConfig;
+  protected config: ISftpConfig;
 
   constructor(config: ISftpConfig) {
     super();
@@ -17,16 +17,23 @@ export class SftpAdapter extends BaseAdapter {
       connectionTimeout: config.connectionTimeout || DEFAULT_TIMEOUTS.CONNECTION,
       commandTimeout: config.commandTimeout || DEFAULT_TIMEOUTS.COMMAND,
       passive: true, // SFTP sempre usa modo passivo
+      autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
+      maxReconnectAttempts: config.maxReconnectAttempts || 3,
+      reconnectDelay: config.reconnectDelay || 1000,
+      maxRetries: config.maxRetries || 3,
+      retryDelay: config.retryDelay || 1000,
+      retryBackoffMultiplier: config.retryBackoffMultiplier || 2,
       ...config,
     };
 
+    this.initConfig(this.config);
     this.client = new SftpClient();
   }
 
   /**
    * Conecta ao servidor SFTP
    */
-  async connect(): Promise<void> {
+  protected async _connect(): Promise<void> {
     try {
       const connectionConfig: any = {
         host: this.config.host,
@@ -43,8 +50,23 @@ export class SftpAdapter extends BaseAdapter {
         }
       }
 
+      // Configurar compressão
+      if (this.config.compress) {
+        connectionConfig.compress = true;
+        // Adicionar algoritmos de compressão se não especificados
+        if (!connectionConfig.algorithms) {
+          connectionConfig.algorithms = {};
+        }
+        if (!connectionConfig.algorithms.compress) {
+          connectionConfig.algorithms.compress = ['zlib@openssh.com', 'zlib', 'none'];
+        }
+      }
+
       if (this.config.algorithms) {
-        connectionConfig.algorithms = this.config.algorithms;
+        connectionConfig.algorithms = {
+          ...connectionConfig.algorithms,
+          ...this.config.algorithms,
+        };
       }
 
       if (this.config.strictVendor !== undefined) {
@@ -86,16 +108,12 @@ export class SftpAdapter extends BaseAdapter {
    * Lista arquivos e diretórios
    */
   async list(path?: string): Promise<IFtpFileInfo[]> {
-    this.ensureConnected();
-
-    try {
+    return this.executeWithReconnect(async () => {
       const remotePath = path ? this.normalizePath(path) : '.';
       const files = await this.client.list(remotePath);
 
       return files.map((file: any) => this.mapFileInfo(file, remotePath));
-    } catch (error: any) {
-      throw new Error(`Failed to list directory: ${error.message}`);
-    }
+    });
   }
 
   /**
@@ -130,38 +148,93 @@ export class SftpAdapter extends BaseAdapter {
    * Faz upload de um arquivo
    */
   async upload(localPath: string, remotePath: string, options?: IUploadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+        if (options?.mode === 'ascii') {
+          console.warn(
+            'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+          );
+        }
 
-      if (options?.createDir) {
-        const dir = this.getDirectory(normalizedRemotePath);
-        await this.mkdir(dir, true);
+        const normalizedRemotePath = this.normalizePath(remotePath);
+
+        if (options?.createDir) {
+          const dir = this.getDirectory(normalizedRemotePath);
+          await this.mkdir(dir, true);
+        }
+
+        const transferOptions: any = {};
+
+        if (options?.onProgress) {
+          transferOptions.step = (transferred: number, _chunk: any, total: number) => {
+            options.onProgress!(transferred, total);
+          };
+        }
+
+        if (options?.concurrency !== undefined) {
+          transferOptions.concurrency = options.concurrency;
+        }
+
+        if (options?.chunkSize !== undefined) {
+          transferOptions.chunkSize = options.chunkSize;
+        }
+
+        if (Object.keys(transferOptions).length > 0 || options?.onProgress) {
+          await this.client.fastPut(localPath, normalizedRemotePath, transferOptions);
+        } else {
+          await this.client.put(localPath, normalizedRemotePath);
+        }
+      } catch (error: any) {
+        throw new Error(`Failed to upload file: ${error.message}`);
       }
-
-      await this.client.put(localPath, normalizedRemotePath);
-    } catch (error: any) {
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
+    });
   }
 
   /**
    * Faz download de um arquivo
    */
-  async download(
-    remotePath: string,
-    localPath: string,
-    _options?: IDownloadOptions,
-  ): Promise<void> {
-    this.ensureConnected();
+  async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
-      await this.client.fastGet(normalizedRemotePath, localPath);
-    } catch (error: any) {
-      throw new Error(`Failed to download file: ${error.message}`);
-    }
+      try {
+        // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+        if (options?.mode === 'ascii') {
+          console.warn(
+            'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+          );
+        }
+
+        const normalizedRemotePath = this.normalizePath(remotePath);
+
+        const transferOptions: any = {};
+
+        if (options?.onProgress) {
+          transferOptions.step = (transferred: number, _chunk: any, total: number) => {
+            options.onProgress!(transferred, total);
+          };
+        }
+
+        if (options?.concurrency !== undefined) {
+          transferOptions.concurrency = options.concurrency;
+        }
+
+        if (options?.chunkSize !== undefined) {
+          transferOptions.chunkSize = options.chunkSize;
+        }
+
+        if (Object.keys(transferOptions).length > 0 || options?.onProgress) {
+          await this.client.fastGet(normalizedRemotePath, localPath, transferOptions);
+        } else {
+          await this.client.fastGet(normalizedRemotePath, localPath);
+        }
+      } catch (error: any) {
+        throw new Error(`Failed to download file: ${error.message}`);
+      }
+    });
   }
 
   /**
@@ -171,6 +244,13 @@ export class SftpAdapter extends BaseAdapter {
     this.ensureConnected();
 
     try {
+      // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+      if (options?.mode === 'ascii') {
+        console.warn(
+          'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+        );
+      }
+
       const normalizedRemotePath = this.normalizePath(remotePath);
 
       if (options?.createDir) {
@@ -187,15 +267,59 @@ export class SftpAdapter extends BaseAdapter {
   /**
    * Faz download para um buffer
    */
-  async downloadBuffer(remotePath: string): Promise<Buffer> {
+  async downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer> {
     this.ensureConnected();
 
     try {
+      // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+      if (options?.mode === 'ascii') {
+        console.warn(
+          'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+        );
+      }
+
       const normalizedRemotePath = this.normalizePath(remotePath);
       const buffer = await this.client.get(normalizedRemotePath);
       return buffer as Buffer;
     } catch (error: any) {
       throw new Error(`Failed to download buffer: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz upload recursivo de um diretório
+   */
+  async uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+
+      if (options?.createDir) {
+        await this.mkdir(normalizedRemoteDir, true);
+      }
+
+      await this.client.uploadDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to upload directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  async downloadDir(
+    remoteDir: string,
+    localDir: string,
+    _options?: IDownloadOptions,
+  ): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+      await this.client.downloadDir(normalizedRemoteDir, localDir);
+    } catch (error: any) {
+      throw new Error(`Failed to download directory: ${error.message}`);
     }
   }
 

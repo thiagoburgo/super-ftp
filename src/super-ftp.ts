@@ -1,4 +1,10 @@
-import { IFtpClient, IFtpConfig, ISftpConfig, IConnectionConfig } from './interfaces';
+import {
+  IFtpClient,
+  IFtpConfig,
+  ISftpConfig,
+  IConnectionConfig,
+  IDownloadOptions,
+} from './interfaces';
 import { ProtocolType } from './constants';
 import { FtpClientFactory } from './factories';
 import { ConnectionParser, IAdvancedOptions } from './utils/connection-parser';
@@ -162,8 +168,8 @@ export class SuperFtp {
   /**
    * Faz download para um buffer
    */
-  async downloadBuffer(remotePath: string): Promise<Buffer> {
-    return this.execute((client) => client.downloadBuffer(remotePath));
+  async downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer> {
+    return this.execute((client) => client.downloadBuffer(remotePath, options));
   }
 
   /**

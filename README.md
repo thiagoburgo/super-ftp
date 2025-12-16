@@ -23,6 +23,10 @@ Reusable TypeScript library for unified FTP, SFTP, and FTPS management with clea
 - ✅ **TypeScript** with complete typing and IntelliSense
 - ✅ **Industry-standard libraries** - based on `basic-ftp` and `ssh2-sftp-client`
 - ✅ **Automatic connection** (lazy connection) - connects only when needed
+- ✅ **Recursive directory transfers** - `uploadDir()` and `downloadDir()` methods
+- ✅ **Progress callbacks** - real-time transfer progress monitoring
+- ✅ **Auto-reconnect** - automatic reconnection on connection failures
+- ✅ **Connection health checks** - monitor and validate connection status
 - ✅ **Recursive operations** - support for nested directories
 - ✅ **Test coverage** - 84%+ coverage with 150+ tests
 - ✅ **Zero bloat** - only essential dependencies
@@ -32,6 +36,39 @@ Reusable TypeScript library for unified FTP, SFTP, and FTPS management with clea
 ```bash
 npm install super-ftp
 ```
+
+### 🔌 Supported Protocols
+
+This library provides unified support for three file transfer protocols:
+
+#### **FTP** (File Transfer Protocol)
+
+- **Port**: 21 (default)
+- **Security**: Unencrypted
+- **Use case**: Internal networks, legacy systems
+- **Connection string**: `ftp://user:pass@host.com:21`
+
+#### **FTPS** (FTP over TLS/SSL)
+
+- **Port**: 21 (default) or 990 (implicit)
+- **Security**: Encrypted using TLS/SSL
+- **Use case**: Secure file transfers over FTP protocol
+- **Connection string**: `ftps://user:pass@host.com:21`
+- **Features**: Supports TLS/SSL options (`secureOptions`)
+
+#### **SFTP** (SSH File Transfer Protocol)
+
+- **Port**: 22 (default)
+- **Security**: Encrypted using SSH
+- **Use case**: Secure file transfers, modern systems
+- **Connection string**: `sftp://user:pass@host.com:22`
+- **Features**: Supports private key authentication, SSH algorithms configuration, compression
+
+**Important Notes:**
+
+- All three protocols share the **same unified API** - switch protocols without changing your code
+- FTPS uses the same adapter as FTP but with `secure: true` flag enabled
+- The protocol is automatically detected from the connection string prefix (`ftp://`, `ftps://`, `sftp://`)
 
 ### 🎯 Basic Usage
 
@@ -94,6 +131,11 @@ const sftp = new SuperFtp('sftp://user:pass@host.com:22', {
     kex: ['diffie-hellman-group-exchange-sha256'],
   },
 });
+
+// For SFTP with compression enabled
+const sftpCompressed = new SuperFtp('sftp://user:pass@host.com:22', {
+  compress: true, // Enable compression for better performance on slow connections
+});
 ```
 
 #### With Configuration Object
@@ -117,6 +159,93 @@ const ftp = new SuperFtp(
     commandTimeout: 10000,
   },
 );
+```
+
+### ⚙️ Advanced Configuration Options
+
+#### Connection Options
+
+```typescript
+interface IConnectionConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  connectionTimeout?: number; // Connection timeout in ms (default: 30000)
+  commandTimeout?: number; // Command timeout in ms (default: 30000)
+  passive?: boolean; // Use passive mode (default: true)
+  autoReconnect?: boolean; // Auto-reconnect on failures (default: true)
+  maxReconnectAttempts?: number; // Max reconnect attempts (default: 3)
+  reconnectDelay?: number; // Delay between reconnect attempts in ms (default: 1000)
+}
+```
+
+#### Upload/Download Options with Progress and Concurrency
+
+```typescript
+interface IUploadOptions {
+  createDir?: boolean; // Create directory if it doesn't exist
+  mode?: 'binary' | 'ascii'; // Transfer mode
+  onProgress?: (transferred: number, total: number) => void; // Progress callback
+  concurrency?: number; // Number of concurrent operations (SFTP only, default: 64)
+  chunkSize?: number; // Chunk size in bytes (SFTP only, default: 32768)
+}
+
+interface IDownloadOptions {
+  mode?: 'binary' | 'ascii'; // Transfer mode
+  onProgress?: (transferred: number, total: number) => void; // Progress callback
+  concurrency?: number; // Number of concurrent operations (SFTP only, default: 64)
+  chunkSize?: number; // Chunk size in bytes (SFTP only, default: 32768)
+}
+```
+
+**Example with progress callbacks and concurrency (SFTP):**
+
+```typescript
+await sftp.upload('/local/file.txt', '/remote/file.txt', {
+  onProgress: (transferred, total) => {
+    console.log(`Progress: ${Math.round((transferred / total) * 100)}%`);
+  },
+  concurrency: 32, // Use 32 concurrent reads (SFTP only)
+  chunkSize: 65536, // Use 64KB chunks (SFTP only)
+});
+```
+
+**Example with transfer mode (FTP/FTPS):**
+
+```typescript
+// Upload text file in ASCII mode (line ending conversion)
+await ftp.upload('/local/file.txt', '/remote/file.txt', {
+  mode: 'ascii', // Converts line endings automatically
+});
+
+// Upload binary file (images, executables, etc.)
+await ftp.upload('/local/image.jpg', '/remote/image.jpg', {
+  mode: 'binary', // No conversion, exact byte transfer
+});
+
+// Note: SFTP always uses binary mode. ASCII mode option is ignored with a warning.
+```
+
+#### Retry Configuration
+
+```typescript
+interface IConnectionConfig {
+  // ... other options
+  maxRetries?: number; // Max retry attempts for operations (default: 3)
+  retryDelay?: number; // Initial retry delay in ms (default: 1000)
+  retryBackoffMultiplier?: number; // Exponential backoff multiplier (default: 2)
+}
+```
+
+**Example with retry configuration:**
+
+```typescript
+const ftp = new SuperFtp('ftp://user:pass@host.com:21', {
+  maxRetries: 5,
+  retryDelay: 500,
+  retryBackoffMultiplier: 2, // Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms
+});
 ```
 
 ### 📚 Complete API
@@ -147,6 +276,22 @@ await ftp.disconnect(): Promise<void>
 
 // Check if connected
 ftp.isConnected(): boolean
+
+// Health check the connection
+await ftp.healthCheck(): Promise<boolean>
+
+// Get connection statistics
+ftp.getConnectionStats(): {
+  connected: boolean;
+  hasConnectedBefore: boolean;
+  lastActivity: Date;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+}
+
+// Force a manual reconnection
+await ftp.forceReconnect(): Promise<void>
 ```
 
 ##### File Methods
@@ -184,6 +329,48 @@ await ftp.uploadBuffer(
 
 // Download to a buffer
 await ftp.downloadBuffer(remotePath: string): Promise<Buffer>
+
+// Upload a directory recursively
+await ftp.uploadDir(
+  localDir: string,
+  remoteDir: string,
+  options?: IUploadOptions
+): Promise<void>
+
+// Download a directory recursively
+await ftp.downloadDir(
+  remoteDir: string,
+  localDir: string,
+  options?: IDownloadOptions
+): Promise<void>
+
+// Batch transfer multiple files with concurrency control
+await ftp.batchTransfer(
+  transfers: IBatchTransfer[],
+  maxConcurrency?: number
+): Promise<IBatchTransferResult[]>
+```
+
+**Batch Transfer Example:**
+
+```typescript
+const results = await ftp.batchTransfer(
+  [
+    { type: 'upload', localPath: '/local/file1.txt', remotePath: '/remote/file1.txt' },
+    { type: 'upload', localPath: '/local/file2.txt', remotePath: '/remote/file2.txt' },
+    { type: 'download', localPath: '/local/file3.txt', remotePath: '/remote/file3.txt' },
+  ],
+  3, // Max 3 concurrent transfers
+);
+
+// Check results
+results.forEach((result) => {
+  if (result.success) {
+    console.log(`✓ ${result.transfer.type} completed in ${result.duration}ms`);
+  } else {
+    console.error(`✗ ${result.transfer.type} failed: ${result.error?.message}`);
+  }
+});
 ```
 
 ##### Directory Methods
@@ -432,6 +619,10 @@ Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e 
 - ✅ **TypeScript** com tipagem completa e IntelliSense
 - ✅ **Bibliotecas de mercado** - baseado em `basic-ftp` e `ssh2-sftp-client`
 - ✅ **Conexão automática** (lazy connection) - conecta apenas quando necessário
+- ✅ **Transferências recursivas de diretórios** - métodos `uploadDir()` e `downloadDir()`
+- ✅ **Callbacks de progresso** - monitoramento de progresso em tempo real
+- ✅ **Reconexão automática** - reconexão automática em falhas de conexão
+- ✅ **Verificações de saúde da conexão** - monitorar e validar status da conexão
 - ✅ **Operações recursivas** - suporte a diretórios aninhados
 - ✅ **Cobertura de testes** - 84%+ de cobertura com 150+ testes
 - ✅ **Zero dependências** - apenas as bibliotecas essenciais
@@ -441,6 +632,39 @@ Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e 
 ```bash
 npm install super-ftp
 ```
+
+### 🔌 Protocolos Suportados
+
+Esta biblioteca fornece suporte unificado para três protocolos de transferência de arquivos:
+
+#### **FTP** (File Transfer Protocol)
+
+- **Porta**: 21 (padrão)
+- **Segurança**: Não criptografado
+- **Casos de uso**: Redes internas, sistemas legados
+- **String de conexão**: `ftp://user:pass@host.com:21`
+
+#### **FTPS** (FTP sobre TLS/SSL)
+
+- **Porta**: 21 (padrão) ou 990 (implícito)
+- **Segurança**: Criptografado usando TLS/SSL
+- **Casos de uso**: Transferências seguras de arquivos sobre protocolo FTP
+- **String de conexão**: `ftps://user:pass@host.com:21`
+- **Recursos**: Suporta opções TLS/SSL (`secureOptions`)
+
+#### **SFTP** (SSH File Transfer Protocol)
+
+- **Porta**: 22 (padrão)
+- **Segurança**: Criptografado usando SSH
+- **Casos de uso**: Transferências seguras de arquivos, sistemas modernos
+- **String de conexão**: `sftp://user:pass@host.com:22`
+- **Recursos**: Suporta autenticação por chave privada, configuração de algoritmos SSH, compressão
+
+**Notas Importantes:**
+
+- Todos os três protocolos compartilham a **mesma API unificada** - altere protocolos sem mudar seu código
+- FTPS usa o mesmo adapter do FTP mas com a flag `secure: true` habilitada
+- O protocolo é automaticamente detectado pelo prefixo da string de conexão (`ftp://`, `ftps://`, `sftp://`)
 
 ### 🎯 Uso Básico
 
@@ -503,6 +727,11 @@ const sftp = new SuperFtp('sftp://user:pass@host.com:22', {
     kex: ['diffie-hellman-group-exchange-sha256'],
   },
 });
+
+// Para SFTP com compressão habilitada
+const sftpCompressed = new SuperFtp('sftp://user:pass@host.com:22', {
+  compress: true, // Habilita compressão para melhor performance em conexões lentas
+});
 ```
 
 #### Com Objeto de Configuração
@@ -526,6 +755,93 @@ const ftp = new SuperFtp(
     commandTimeout: 10000,
   },
 );
+```
+
+### ⚙️ Opções Avançadas de Configuração
+
+#### Opções de Conexão
+
+```typescript
+interface IConnectionConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  connectionTimeout?: number; // Timeout de conexão em ms (padrão: 30000)
+  commandTimeout?: number; // Timeout de comandos em ms (padrão: 30000)
+  passive?: boolean; // Usar modo passivo (padrão: true)
+  autoReconnect?: boolean; // Reconexão automática em falhas (padrão: true)
+  maxReconnectAttempts?: number; // Máximo de tentativas de reconexão (padrão: 3)
+  reconnectDelay?: number; // Delay entre tentativas em ms (padrão: 1000)
+}
+```
+
+#### Opções de Upload/Download com Progresso e Concorrência
+
+```typescript
+interface IUploadOptions {
+  createDir?: boolean; // Criar diretório se não existir
+  mode?: 'binary' | 'ascii'; // Modo de transferência
+  onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+  concurrency?: number; // Número de operações concorrentes (apenas SFTP, padrão: 64)
+  chunkSize?: number; // Tamanho do chunk em bytes (apenas SFTP, padrão: 32768)
+}
+
+interface IDownloadOptions {
+  mode?: 'binary' | 'ascii'; // Modo de transferência
+  onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+  concurrency?: number; // Número de operações concorrentes (apenas SFTP, padrão: 64)
+  chunkSize?: number; // Tamanho do chunk em bytes (apenas SFTP, padrão: 32768)
+}
+```
+
+**Exemplo com callbacks de progresso e concorrência (SFTP):**
+
+```typescript
+await sftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
+  onProgress: (transferido, total) => {
+    console.log(`Progresso: ${Math.round((transferido / total) * 100)}%`);
+  },
+  concurrency: 32, // Usar 32 leituras concorrentes (apenas SFTP)
+  chunkSize: 65536, // Usar chunks de 64KB (apenas SFTP)
+});
+```
+
+**Exemplo com modo de transferência (FTP/FTPS):**
+
+```typescript
+// Upload de arquivo texto em modo ASCII (conversão de quebras de linha)
+await ftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
+  mode: 'ascii', // Converte quebras de linha automaticamente
+});
+
+// Upload de arquivo binário (imagens, executáveis, etc.)
+await ftp.upload('/local/imagem.jpg', '/remote/imagem.jpg', {
+  mode: 'binary', // Sem conversão, transferência exata de bytes
+});
+
+// Nota: SFTP sempre usa modo binary. A opção ASCII é ignorada com um aviso.
+```
+
+#### Configuração de Retry
+
+```typescript
+interface IConnectionConfig {
+  // ... outras opções
+  maxRetries?: number; // Máximo de tentativas de retry (padrão: 3)
+  retryDelay?: number; // Delay inicial para retry em ms (padrão: 1000)
+  retryBackoffMultiplier?: number; // Multiplicador de backoff exponencial (padrão: 2)
+}
+```
+
+**Exemplo com configuração de retry:**
+
+```typescript
+const ftp = new SuperFtp('ftp://user:pass@host.com:21', {
+  maxRetries: 5,
+  retryDelay: 500,
+  retryBackoffMultiplier: 2, // Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms
+});
 ```
 
 ### 📚 API Completa
@@ -556,6 +872,22 @@ await ftp.disconnect(): Promise<void>
 
 // Verifica se está conectado
 ftp.isConnected(): boolean
+
+// Verificação de saúde da conexão
+await ftp.healthCheck(): Promise<boolean>
+
+// Obtém estatísticas da conexão
+ftp.getConnectionStats(): {
+  connected: boolean;
+  hasConnectedBefore: boolean;
+  lastActivity: Date;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+}
+
+// Força uma reconexão manual
+await ftp.forceReconnect(): Promise<void>
 ```
 
 ##### Métodos de Arquivo
@@ -593,6 +925,48 @@ await ftp.uploadBuffer(
 
 // Faz download para um buffer
 await ftp.downloadBuffer(remotePath: string): Promise<Buffer>
+
+// Faz upload recursivo de um diretório
+await ftp.uploadDir(
+  localDir: string,
+  remoteDir: string,
+  options?: IUploadOptions
+): Promise<void>
+
+// Faz download recursivo de um diretório
+await ftp.downloadDir(
+  remoteDir: string,
+  localDir: string,
+  options?: IDownloadOptions
+): Promise<void>
+
+// Transferência em lote de múltiplos arquivos com controle de concorrência
+await ftp.batchTransfer(
+  transfers: IBatchTransfer[],
+  maxConcurrency?: number
+): Promise<IBatchTransferResult[]>
+```
+
+**Exemplo de Transferência em Lote:**
+
+```typescript
+const resultados = await ftp.batchTransfer(
+  [
+    { type: 'upload', localPath: '/local/arquivo1.txt', remotePath: '/remote/arquivo1.txt' },
+    { type: 'upload', localPath: '/local/arquivo2.txt', remotePath: '/remote/arquivo2.txt' },
+    { type: 'download', localPath: '/local/arquivo3.txt', remotePath: '/remote/arquivo3.txt' },
+  ],
+  3, // Máximo de 3 transferências simultâneas
+);
+
+// Verificar resultados
+resultados.forEach((resultado) => {
+  if (resultado.success) {
+    console.log(`✓ ${resultado.transfer.type} concluído em ${resultado.duration}ms`);
+  } else {
+    console.error(`✗ ${resultado.transfer.type} falhou: ${resultado.error?.message}`);
+  }
+});
 ```
 
 ##### Métodos de Diretório

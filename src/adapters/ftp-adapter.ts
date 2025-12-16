@@ -9,7 +9,7 @@ import { Readable, Writable } from 'stream';
  */
 export class FtpAdapter extends BaseAdapter {
   private client: Client;
-  private config: IFtpConfig;
+  protected config: IFtpConfig;
 
   constructor(config: IFtpConfig) {
     super();
@@ -18,16 +18,23 @@ export class FtpAdapter extends BaseAdapter {
       connectionTimeout: config.connectionTimeout || DEFAULT_TIMEOUTS.CONNECTION,
       commandTimeout: config.commandTimeout || DEFAULT_TIMEOUTS.COMMAND,
       passive: config.passive !== undefined ? config.passive : true,
+      autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
+      maxReconnectAttempts: config.maxReconnectAttempts || 3,
+      reconnectDelay: config.reconnectDelay || 1000,
+      maxRetries: config.maxRetries || 3,
+      retryDelay: config.retryDelay || 1000,
+      retryBackoffMultiplier: config.retryBackoffMultiplier || 2,
       ...config,
     };
 
+    this.initConfig(this.config);
     this.client = new Client(this.config.connectionTimeout);
   }
 
   /**
    * Conecta ao servidor FTP/FTPS
    */
-  async connect(): Promise<void> {
+  protected async _connect(): Promise<void> {
     try {
       const accessOptions: any = {
         host: this.config.host,
@@ -112,38 +119,85 @@ export class FtpAdapter extends BaseAdapter {
    * Faz upload de um arquivo
    */
   async upload(localPath: string, remotePath: string, options?: IUploadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
 
-      if (options?.createDir) {
-        const dir = this.getDirectory(normalizedRemotePath);
-        await this.mkdir(dir, true);
+        if (options?.createDir) {
+          const dir = this.getDirectory(normalizedRemotePath);
+          await this.mkdir(dir, true);
+        }
+
+        // Configurar modo de transferência se fornecido
+        if (options?.mode) {
+          await this.setTransferMode(options.mode);
+        }
+
+        // Configurar callback de progresso se fornecido
+        if (options?.onProgress) {
+          this.client.trackProgress((info) => {
+            if (info.type === 'upload' && info.name === localPath) {
+              options.onProgress!(info.bytes, info.bytesOverall);
+            }
+          });
+        }
+
+        await this.client.uploadFrom(localPath, normalizedRemotePath);
+
+        // Desabilitar tracking de progresso após operação
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+      } catch (error: any) {
+        // Garantir que tracking seja desabilitado em caso de erro
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+        throw new Error(`Failed to upload file: ${error.message}`);
       }
-
-      await this.client.uploadFrom(localPath, normalizedRemotePath);
-    } catch (error: any) {
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
+    });
   }
 
   /**
    * Faz download de um arquivo
    */
-  async download(
-    remotePath: string,
-    localPath: string,
-    _options?: IDownloadOptions,
-  ): Promise<void> {
-    this.ensureConnected();
+  async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
-      await this.client.downloadTo(localPath, normalizedRemotePath);
-    } catch (error: any) {
-      throw new Error(`Failed to download file: ${error.message}`);
-    }
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
+
+        // Configurar modo de transferência se fornecido
+        if (options?.mode) {
+          await this.setTransferMode(options.mode);
+        }
+
+        // Configurar callback de progresso se fornecido
+        if (options?.onProgress) {
+          this.client.trackProgress((info) => {
+            if (info.type === 'download' && info.name === normalizedRemotePath) {
+              options.onProgress!(info.bytes, info.bytesOverall);
+            }
+          });
+        }
+
+        await this.client.downloadTo(localPath, normalizedRemotePath);
+
+        // Desabilitar tracking de progresso após operação
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+      } catch (error: any) {
+        // Garantir que tracking seja desabilitado em caso de erro
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+        throw new Error(`Failed to download file: ${error.message}`);
+      }
+    });
   }
 
   /**
@@ -160,6 +214,11 @@ export class FtpAdapter extends BaseAdapter {
         await this.mkdir(dir, true);
       }
 
+      // Configurar modo de transferência se fornecido
+      if (options?.mode) {
+        await this.setTransferMode(options.mode);
+      }
+
       // Convert Buffer to Readable stream
       const stream = Readable.from(buffer);
       await this.client.uploadFrom(stream, normalizedRemotePath);
@@ -171,11 +230,17 @@ export class FtpAdapter extends BaseAdapter {
   /**
    * Faz download para um buffer
    */
-  async downloadBuffer(remotePath: string): Promise<Buffer> {
+  async downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer> {
     this.ensureConnected();
 
     try {
       const normalizedRemotePath = this.normalizePath(remotePath);
+
+      // Configurar modo de transferência se fornecido
+      if (options?.mode) {
+        await this.setTransferMode(options.mode);
+      }
+
       const chunks: Buffer[] = [];
 
       const writable = new Writable({
@@ -189,6 +254,43 @@ export class FtpAdapter extends BaseAdapter {
       return Buffer.concat(chunks);
     } catch (error: any) {
       throw new Error(`Failed to download buffer: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz upload recursivo de um diretório
+   */
+  async uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+
+      if (options?.createDir) {
+        await this.mkdir(normalizedRemoteDir, true);
+      }
+
+      await this.client.uploadFromDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to upload directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  async downloadDir(
+    remoteDir: string,
+    localDir: string,
+    _options?: IDownloadOptions,
+  ): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+      await this.client.downloadToDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to download directory: ${error.message}`);
     }
   }
 
@@ -303,6 +405,22 @@ export class FtpAdapter extends BaseAdapter {
       return await this.client.pwd();
     } catch (error: any) {
       throw new Error(`Failed to get current directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Define o modo de transferência (binary ou ascii)
+   */
+  private async setTransferMode(mode: 'binary' | 'ascii'): Promise<void> {
+    try {
+      // basic-ftp expõe send através de client.ftp.send()
+      if (mode === 'ascii') {
+        await (this.client as any).send('TYPE A');
+      } else {
+        await (this.client as any).send('TYPE I');
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to set transfer mode to ${mode}: ${error.message}`);
     }
   }
 

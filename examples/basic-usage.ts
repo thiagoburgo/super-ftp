@@ -83,9 +83,84 @@ async function exemploUploadBuffer() {
   await ftp.disconnect();
 }
 
+async function exemploProgressCallbacks() {
+  // Exemplo 5: Transferências com callbacks de progresso
+  const ftp = new SuperFtp('ftp://user:pass@host.com:21');
+
+  console.log('Fazendo upload com progresso...');
+  await ftp.upload('/local/large-file.zip', '/remote/large-file.zip', {
+    onProgress: (transferred, total) => {
+      const percent = Math.round((transferred / total) * 100);
+      console.log(`Upload: ${percent}% concluído (${transferred}/${total} bytes)`);
+    }
+  });
+
+  console.log('Fazendo download com progresso...');
+  await ftp.download('/remote/large-file.zip', '/local/downloaded-file.zip', {
+    onProgress: (transferred, total) => {
+      const percent = Math.round((transferred / total) * 100);
+      console.log(`Download: ${percent}% concluído (${transferred}/${total} bytes)`);
+    }
+  });
+
+  await ftp.disconnect();
+}
+
+async function exemploTransferenciaDiretorios() {
+  // Exemplo 6: Transferência recursiva de diretórios
+  const ftp = new SuperFtp('ftp://user:pass@host.com:21');
+
+  console.log('Fazendo upload de diretório...');
+  await ftp.uploadDir('/local/website', '/remote/website', {
+    createDir: true, // Cria diretórios automaticamente
+    onProgress: (transferred, total) => {
+      const percent = Math.round((transferred / total) * 100);
+      console.log(`Upload dir: ${percent}% concluído`);
+    }
+  });
+
+  console.log('Fazendo download de diretório...');
+  await ftp.downloadDir('/remote/website', '/local/downloaded-website', {
+    onProgress: (transferred, total) => {
+      const percent = Math.round((transferred / total) * 100);
+      console.log(`Download dir: ${percent}% concluído`);
+    }
+  });
+
+  await ftp.disconnect();
+}
+
+async function exemploLazyConnectionsAvancadas() {
+  // Exemplo 7: Lazy connections com auto-reconnect e health checks
+  const ftp = new SuperFtp('ftp://user:pass@host.com:21', {
+    autoReconnect: true,
+    maxReconnectAttempts: 5,
+    reconnectDelay: 2000,
+  });
+
+  // Health check
+  const isHealthy = await ftp.healthCheck();
+  console.log('Conexão saudável:', isHealthy);
+
+  // Estatísticas da conexão
+  const stats = ftp.getConnectionStats();
+  console.log('Estatísticas da conexão:', stats);
+
+  // Operações - serão automaticamente reconectadas se necessário
+  await ftp.upload('/local/file.txt', '/remote/file.txt');
+
+  // Forçar reconexão manual se necessário
+  await ftp.forceReconnect();
+
+  await ftp.disconnect();
+}
+
 // Executar exemplos (descomente para testar)
 // exemploBasico();
 // exemploComOpcoesAvancadas();
 // exemploComConfigObject();
 // exemploUploadBuffer();
+// exemploProgressCallbacks();
+// exemploTransferenciaDiretorios();
+// exemploLazyConnectionsAvancadas();
 

@@ -422,7 +422,7 @@ describe('SuperFtp', () => {
 
         // Assert
         expect(mockClient.connect).toHaveBeenCalled();
-        expect(mockClient.downloadBuffer).toHaveBeenCalledWith('/remote/file.txt');
+        expect(mockClient.downloadBuffer).toHaveBeenCalledWith('/remote/file.txt', undefined);
         expect(result).toEqual(expectedBuffer);
       });
     });

@@ -19,12 +19,15 @@ describe('FtpAdapter', () => {
       list: jest.fn().mockResolvedValue([]),
       uploadFrom: jest.fn().mockResolvedValue(undefined),
       downloadTo: jest.fn().mockResolvedValue(undefined),
+      uploadFromDir: jest.fn().mockResolvedValue(undefined),
+      downloadToDir: jest.fn().mockResolvedValue(undefined),
       ensureDir: jest.fn().mockResolvedValue(undefined),
       removeDir: jest.fn().mockResolvedValue(undefined),
       remove: jest.fn().mockResolvedValue(undefined),
       rename: jest.fn().mockResolvedValue(undefined),
       cd: jest.fn().mockResolvedValue(undefined),
       pwd: jest.fn().mockResolvedValue('/'),
+      send: jest.fn().mockResolvedValue(undefined),
       ftp: {
         passive: true,
       } as any,
@@ -228,6 +231,18 @@ describe('FtpAdapter', () => {
       // Assert
       expect(mockClient.downloadTo).toHaveBeenCalledWith('/local/file.txt', '/remote/file.txt');
     });
+
+    it('should set transfer mode to ASCII when specified', async () => {
+      // Arrange
+      await adapter.connect();
+      mockClient.send = jest.fn().mockResolvedValue(undefined);
+
+      // Act
+      await adapter.download('/remote/file.txt', '/local/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(mockClient.send).toHaveBeenCalledWith('TYPE A');
+    });
   });
 
   describe('uploadBuffer', () => {
@@ -269,6 +284,66 @@ describe('FtpAdapter', () => {
       // Assert
       expect(mockClient.downloadTo).toHaveBeenCalled();
       expect(Buffer.isBuffer(result)).toBe(true);
+    });
+
+    it('should set transfer mode to ASCII when specified', async () => {
+      // Arrange
+      await adapter.connect();
+      const chunks: Buffer[] = [];
+      const mockWrite = jest.fn((chunk: Buffer, _encoding: string, callback: () => void) => {
+        chunks.push(chunk);
+        callback();
+      });
+      jest.spyOn(Writable, 'Writable').mockImplementation((_options: any) => {
+        return {
+          write: mockWrite,
+        } as any;
+      });
+      mockClient.send = jest.fn().mockResolvedValue(undefined);
+
+      // Act
+      await adapter.downloadBuffer('/remote/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(mockClient.send).toHaveBeenCalledWith('TYPE A');
+    });
+  });
+
+  describe('uploadDir', () => {
+    it('should upload directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir');
+
+      // Assert
+      expect(mockClient.uploadFromDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+
+    it('should create remote directory if createDir option is true', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir', { createDir: true });
+
+      // Assert
+      expect(mockClient.ensureDir).toHaveBeenCalledWith('/remote/dir');
+      expect(mockClient.uploadFromDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+  });
+
+  describe('downloadDir', () => {
+    it('should download directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.downloadDir('/remote/dir', '/local/dir');
+
+      // Assert
+      expect(mockClient.downloadToDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
     });
   });
 

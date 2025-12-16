@@ -6,7 +6,10 @@ const mockSftpClient = {
   stat: jest.fn().mockResolvedValue(null),
   put: jest.fn().mockResolvedValue(undefined),
   fastGet: jest.fn().mockResolvedValue(undefined),
+  fastPut: jest.fn().mockResolvedValue(undefined),
   get: jest.fn().mockResolvedValue(Buffer.from('content')),
+  uploadDir: jest.fn().mockResolvedValue(undefined),
+  downloadDir: jest.fn().mockResolvedValue(undefined),
   mkdir: jest.fn().mockResolvedValue(undefined),
   rmdir: jest.fn().mockResolvedValue(undefined),
   delete: jest.fn().mockResolvedValue(undefined),
@@ -68,6 +71,29 @@ describe('SftpAdapter', () => {
 
       // Assert
       expect(adapter).toBeInstanceOf(SftpAdapter);
+    });
+
+    it('should enable compression when compress option is true', async () => {
+      // Arrange
+      const adapter = new SftpAdapter({
+        host: 'sftp.example.com',
+        user: 'user',
+        password: 'pass',
+        compress: true,
+      });
+
+      // Act
+      await adapter.connect();
+
+      // Assert
+      expect(mockSftpClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          compress: true,
+          algorithms: expect.objectContaining({
+            compress: ['zlib@openssh.com', 'zlib', 'none'],
+          }),
+        }),
+      );
     });
   });
 
@@ -220,6 +246,21 @@ describe('SftpAdapter', () => {
       expect(mockSftpClient.put).toHaveBeenCalledWith('/local/file.txt', '/remote/file.txt');
     });
 
+    it('should warn when ASCII mode is requested (SFTP always uses binary)', async () => {
+      // Arrange
+      await adapter.connect();
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      // Act
+      await adapter.upload('/local/file.txt', '/remote/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('SFTP protocol always uses binary mode'),
+      );
+      consoleSpy.mockRestore();
+    });
+
     it('should create directory before upload when option is set', async () => {
       // Arrange
       await adapter.connect();
@@ -276,6 +317,61 @@ describe('SftpAdapter', () => {
       // Assert
       expect(mockSftpClient.get).toHaveBeenCalledWith('/remote/file.txt');
       expect(result).toEqual(expectedBuffer);
+    });
+
+    it('should warn when ASCII mode is requested (SFTP always uses binary)', async () => {
+      // Arrange
+      await adapter.connect();
+      const expectedBuffer = Buffer.from('file content');
+      mockSftpClient.get.mockResolvedValue(expectedBuffer);
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      // Act
+      await adapter.downloadBuffer('/remote/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('SFTP protocol always uses binary mode'),
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('uploadDir', () => {
+    it('should upload directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir');
+
+      // Assert
+      expect(mockSftpClient.uploadDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+
+    it('should create remote directory if createDir option is true', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir', { createDir: true });
+
+      // Assert
+      expect(mockSftpClient.mkdir).toHaveBeenCalledWith('/remote/dir', true);
+      expect(mockSftpClient.uploadDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+  });
+
+  describe('downloadDir', () => {
+    it('should download directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.downloadDir('/remote/dir', '/local/dir');
+
+      // Assert
+      expect(mockSftpClient.downloadDir).toHaveBeenCalledWith('/remote/dir', '/local/dir');
     });
   });
 

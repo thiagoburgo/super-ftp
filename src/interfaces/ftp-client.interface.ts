@@ -46,7 +46,17 @@ export interface IFtpClient {
   /**
    * Faz download para um buffer
    */
-  downloadBuffer(remotePath: string): Promise<Buffer>;
+  downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer>;
+
+  /**
+   * Faz upload recursivo de um diretório
+   */
+  uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void>;
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  downloadDir(remoteDir: string, localDir: string, options?: IDownloadOptions): Promise<void>;
 
   /**
    * Cria um diretório
@@ -82,6 +92,38 @@ export interface IFtpClient {
    * Obtém o diretório de trabalho atual
    */
   pwd(): Promise<string>;
+
+  /**
+   * Health check da conexão
+   */
+  healthCheck(): Promise<boolean>;
+
+  /**
+   * Obtém estatísticas da conexão
+   */
+  getConnectionStats(): {
+    connected: boolean;
+    hasConnectedBefore: boolean;
+    lastActivity: Date;
+    autoReconnect: boolean;
+    maxReconnectAttempts: number;
+    reconnectDelay: number;
+  };
+
+  /**
+   * Força uma reconexão manual
+   */
+  forceReconnect(): Promise<void>;
+
+  /**
+   * Faz transferência em lote de múltiplos arquivos com controle de concorrência
+   * @param transfers Array de transferências a serem executadas
+   * @param maxConcurrency Número máximo de transferências simultâneas (padrão: 5)
+   */
+  batchTransfer(
+    transfers: IBatchTransfer[],
+    maxConcurrency?: number,
+  ): Promise<IBatchTransferResult[]>;
 }
 
 /**
@@ -116,6 +158,18 @@ export interface IUploadOptions {
    * Callback de progresso (bytes transferidos, total)
    */
   onProgress?: (transferred: number, total: number) => void;
+
+  /**
+   * Número de operações concorrentes (apenas SFTP)
+   * Padrão: 64 para SFTP, não suportado para FTP
+   */
+  concurrency?: number;
+
+  /**
+   * Tamanho do chunk em bytes (apenas SFTP)
+   * Padrão: 32768 para SFTP, não suportado para FTP
+   */
+  chunkSize?: number;
 }
 
 /**
@@ -131,6 +185,18 @@ export interface IDownloadOptions {
    * Callback de progresso (bytes transferidos, total)
    */
   onProgress?: (transferred: number, total: number) => void;
+
+  /**
+   * Número de operações concorrentes (apenas SFTP)
+   * Padrão: 64 para SFTP, não suportado para FTP
+   */
+  concurrency?: number;
+
+  /**
+   * Tamanho do chunk em bytes (apenas SFTP)
+   * Padrão: 32768 para SFTP, não suportado para FTP
+   */
+  chunkSize?: number;
 }
 
 /**
@@ -153,6 +219,30 @@ export interface IConnectionConfig {
    * Se deve usar modo passivo (padrão: true)
    */
   passive?: boolean;
+  /**
+   * Se deve tentar reconectar automaticamente em caso de falha (padrão: true)
+   */
+  autoReconnect?: boolean;
+  /**
+   * Número máximo de tentativas de reconexão (padrão: 3)
+   */
+  maxReconnectAttempts?: number;
+  /**
+   * Delay entre tentativas de reconexão em ms (padrão: 1000)
+   */
+  reconnectDelay?: number;
+  /**
+   * Número máximo de tentativas de retry para operações (padrão: 3)
+   */
+  maxRetries?: number;
+  /**
+   * Delay inicial para retry em ms (padrão: 1000)
+   */
+  retryDelay?: number;
+  /**
+   * Multiplicador para backoff exponencial (padrão: 2)
+   */
+  retryBackoffMultiplier?: number;
 }
 
 /**
@@ -193,7 +283,13 @@ export interface ISftpConfig extends IConnectionConfig {
     cipher?: string[];
     serverHostKey?: string[];
     hmac?: string[];
+    compress?: string[];
   };
+  /**
+   * Se deve habilitar compressão (padrão: false)
+   * Quando true, adiciona 'zlib@openssh.com' e 'zlib' aos algoritmos de compressão
+   */
+  compress?: boolean;
   /**
    * Se deve verificar o host
    */
@@ -203,4 +299,59 @@ export interface ISftpConfig extends IConnectionConfig {
    * Útil para aceitar automaticamente chaves desconhecidas em testes
    */
   hostVerifier?: (keyHash: string) => boolean;
+}
+
+/**
+ * Tipo de transferência em lote
+ */
+export type BatchTransferType = 'upload' | 'download';
+
+/**
+ * Definição de uma transferência individual em lote
+ */
+export interface IBatchTransfer {
+  /**
+   * Tipo de transferência
+   */
+  type: BatchTransferType;
+
+  /**
+   * Caminho local (para upload) ou remoto (para download)
+   */
+  localPath: string;
+
+  /**
+   * Caminho remoto (para upload) ou local (para download)
+   */
+  remotePath: string;
+
+  /**
+   * Opções específicas para esta transferência
+   */
+  options?: IUploadOptions | IDownloadOptions;
+}
+
+/**
+ * Resultado de uma transferência em lote
+ */
+export interface IBatchTransferResult {
+  /**
+   * Transferência original
+   */
+  transfer: IBatchTransfer;
+
+  /**
+   * Se a transferência foi bem-sucedida
+   */
+  success: boolean;
+
+  /**
+   * Erro ocorrido (se houver)
+   */
+  error?: Error;
+
+  /**
+   * Tempo de execução em milissegundos
+   */
+  duration: number;
 }
