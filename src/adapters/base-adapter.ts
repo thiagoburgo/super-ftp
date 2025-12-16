@@ -1,4 +1,11 @@
-import { IFtpClient, IFtpFileInfo, IUploadOptions, IDownloadOptions } from '../interfaces';
+import {
+  IFtpClient,
+  IFtpFileInfo,
+  IUploadOptions,
+  IDownloadOptions,
+  IBatchTransfer,
+  IBatchTransferResult,
+} from '../interfaces';
 
 /**
  * Classe base abstrata para adaptadores de protocolos FTP
@@ -11,6 +18,9 @@ export abstract class BaseAdapter implements IFtpClient {
   protected autoReconnect: boolean = true;
   protected maxReconnectAttempts: number = 3;
   protected reconnectDelay: number = 1000; // ms
+  protected maxRetries: number = 3;
+  protected retryDelay: number = 1000; // ms
+  protected retryBackoffMultiplier: number = 2;
   protected config: any;
 
   /**
@@ -21,6 +31,9 @@ export abstract class BaseAdapter implements IFtpClient {
     this.autoReconnect = baseConfig.autoReconnect !== undefined ? baseConfig.autoReconnect : true;
     this.maxReconnectAttempts = baseConfig.maxReconnectAttempts || 3;
     this.reconnectDelay = baseConfig.reconnectDelay || 1000;
+    this.maxRetries = baseConfig.maxRetries || 3;
+    this.retryDelay = baseConfig.retryDelay || 1000;
+    this.retryBackoffMultiplier = baseConfig.retryBackoffMultiplier || 2;
   }
 
   /**
@@ -65,6 +78,66 @@ export abstract class BaseAdapter implements IFtpClient {
       }
       throw error;
     }
+  }
+
+  /**
+   * Executa uma operação com retry logic e backoff exponencial
+   */
+  protected async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries?: number,
+    retryDelay?: number,
+    backoffMultiplier?: number,
+  ): Promise<T> {
+    const maxAttempts = maxRetries !== undefined ? maxRetries : this.maxRetries;
+    const initialDelay = retryDelay !== undefined ? retryDelay : this.retryDelay;
+    const multiplier =
+      backoffMultiplier !== undefined ? backoffMultiplier : this.retryBackoffMultiplier;
+
+    let lastError: any;
+    let currentDelay = initialDelay;
+
+    for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+
+        // Se não é um erro recuperável ou é a última tentativa, lança o erro
+        if (!this.isRetryableError(error) || attempt === maxAttempts) {
+          throw error;
+        }
+
+        // Aguardar antes de tentar novamente com backoff exponencial
+        await new Promise((resolve) => setTimeout(resolve, currentDelay));
+        currentDelay *= multiplier;
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Verifica se um erro é recuperável e deve ser tentado novamente
+   */
+  protected isRetryableError(error: any): boolean {
+    const errorMessage = (error.message || String(error)).toLowerCase();
+
+    const retryableErrors = [
+      'timeout',
+      'connection',
+      'network',
+      'econnreset',
+      'econnrefused',
+      'etimedout',
+      'socket',
+      'temporary',
+      '503', // Service Unavailable
+      '502', // Bad Gateway
+      '504', // Gateway Timeout
+    ];
+
+    return retryableErrors.some((msg) => errorMessage.includes(msg));
   }
 
   /**
@@ -156,6 +229,71 @@ export abstract class BaseAdapter implements IFtpClient {
   async forceReconnect(): Promise<void> {
     await this.disconnect();
     await this.connect();
+  }
+
+  /**
+   * Faz transferência em lote de múltiplos arquivos com controle de concorrência
+   */
+  async batchTransfer(
+    transfers: IBatchTransfer[],
+    maxConcurrency: number = 5,
+  ): Promise<IBatchTransferResult[]> {
+    this.ensureConnected();
+
+    const results: IBatchTransferResult[] = [];
+    const executing: Promise<void>[] = [];
+
+    for (const transfer of transfers) {
+      const promise = this.executeTransfer(transfer).then((result) => {
+        results.push(result);
+        executing.splice(executing.indexOf(promise), 1);
+      });
+
+      executing.push(promise);
+
+      if (executing.length >= maxConcurrency) {
+        await Promise.race(executing);
+      }
+    }
+
+    await Promise.all(executing);
+    return results;
+  }
+
+  /**
+   * Executa uma transferência individual
+   */
+  private async executeTransfer(transfer: IBatchTransfer): Promise<IBatchTransferResult> {
+    const startTime = Date.now();
+
+    try {
+      if (transfer.type === 'upload') {
+        await this.upload(
+          transfer.localPath,
+          transfer.remotePath,
+          transfer.options as IUploadOptions,
+        );
+      } else {
+        await this.download(
+          transfer.remotePath,
+          transfer.localPath,
+          transfer.options as IDownloadOptions,
+        );
+      }
+
+      return {
+        transfer,
+        success: true,
+        duration: Date.now() - startTime,
+      };
+    } catch (error: any) {
+      return {
+        transfer,
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+        duration: Date.now() - startTime,
+      };
+    }
   }
 
   /**

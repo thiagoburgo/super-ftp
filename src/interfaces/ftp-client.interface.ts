@@ -114,6 +114,16 @@ export interface IFtpClient {
    * Força uma reconexão manual
    */
   forceReconnect(): Promise<void>;
+
+  /**
+   * Faz transferência em lote de múltiplos arquivos com controle de concorrência
+   * @param transfers Array de transferências a serem executadas
+   * @param maxConcurrency Número máximo de transferências simultâneas (padrão: 5)
+   */
+  batchTransfer(
+    transfers: IBatchTransfer[],
+    maxConcurrency?: number,
+  ): Promise<IBatchTransferResult[]>;
 }
 
 /**
@@ -148,6 +158,18 @@ export interface IUploadOptions {
    * Callback de progresso (bytes transferidos, total)
    */
   onProgress?: (transferred: number, total: number) => void;
+
+  /**
+   * Número de operações concorrentes (apenas SFTP)
+   * Padrão: 64 para SFTP, não suportado para FTP
+   */
+  concurrency?: number;
+
+  /**
+   * Tamanho do chunk em bytes (apenas SFTP)
+   * Padrão: 32768 para SFTP, não suportado para FTP
+   */
+  chunkSize?: number;
 }
 
 /**
@@ -163,6 +185,18 @@ export interface IDownloadOptions {
    * Callback de progresso (bytes transferidos, total)
    */
   onProgress?: (transferred: number, total: number) => void;
+
+  /**
+   * Número de operações concorrentes (apenas SFTP)
+   * Padrão: 64 para SFTP, não suportado para FTP
+   */
+  concurrency?: number;
+
+  /**
+   * Tamanho do chunk em bytes (apenas SFTP)
+   * Padrão: 32768 para SFTP, não suportado para FTP
+   */
+  chunkSize?: number;
 }
 
 /**
@@ -197,6 +231,18 @@ export interface IConnectionConfig {
    * Delay entre tentativas de reconexão em ms (padrão: 1000)
    */
   reconnectDelay?: number;
+  /**
+   * Número máximo de tentativas de retry para operações (padrão: 3)
+   */
+  maxRetries?: number;
+  /**
+   * Delay inicial para retry em ms (padrão: 1000)
+   */
+  retryDelay?: number;
+  /**
+   * Multiplicador para backoff exponencial (padrão: 2)
+   */
+  retryBackoffMultiplier?: number;
 }
 
 /**
@@ -247,4 +293,59 @@ export interface ISftpConfig extends IConnectionConfig {
    * Útil para aceitar automaticamente chaves desconhecidas em testes
    */
   hostVerifier?: (keyHash: string) => boolean;
+}
+
+/**
+ * Tipo de transferência em lote
+ */
+export type BatchTransferType = 'upload' | 'download';
+
+/**
+ * Definição de uma transferência individual em lote
+ */
+export interface IBatchTransfer {
+  /**
+   * Tipo de transferência
+   */
+  type: BatchTransferType;
+
+  /**
+   * Caminho local (para upload) ou remoto (para download)
+   */
+  localPath: string;
+
+  /**
+   * Caminho remoto (para upload) ou local (para download)
+   */
+  remotePath: string;
+
+  /**
+   * Opções específicas para esta transferência
+   */
+  options?: IUploadOptions | IDownloadOptions;
+}
+
+/**
+ * Resultado de uma transferência em lote
+ */
+export interface IBatchTransferResult {
+  /**
+   * Transferência original
+   */
+  transfer: IBatchTransfer;
+
+  /**
+   * Se a transferência foi bem-sucedida
+   */
+  success: boolean;
+
+  /**
+   * Erro ocorrido (se houver)
+   */
+  error?: Error;
+
+  /**
+   * Tempo de execução em milissegundos
+   */
+  duration: number;
 }

@@ -21,6 +21,9 @@ export class FtpAdapter extends BaseAdapter {
       autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
       maxReconnectAttempts: config.maxReconnectAttempts || 3,
       reconnectDelay: config.reconnectDelay || 1000,
+      maxRetries: config.maxRetries || 3,
+      retryDelay: config.retryDelay || 1000,
+      retryBackoffMultiplier: config.retryBackoffMultiplier || 2,
       ...config,
     };
 
@@ -116,71 +119,75 @@ export class FtpAdapter extends BaseAdapter {
    * Faz upload de um arquivo
    */
   async upload(localPath: string, remotePath: string, options?: IUploadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
 
-      if (options?.createDir) {
-        const dir = this.getDirectory(normalizedRemotePath);
-        await this.mkdir(dir, true);
+        if (options?.createDir) {
+          const dir = this.getDirectory(normalizedRemotePath);
+          await this.mkdir(dir, true);
+        }
+
+        // Configurar callback de progresso se fornecido
+        if (options?.onProgress) {
+          this.client.trackProgress((info) => {
+            if (info.type === 'upload' && info.name === localPath) {
+              options.onProgress!(info.bytes, info.bytesOverall);
+            }
+          });
+        }
+
+        await this.client.uploadFrom(localPath, normalizedRemotePath);
+
+        // Desabilitar tracking de progresso após operação
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+      } catch (error: any) {
+        // Garantir que tracking seja desabilitado em caso de erro
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+        throw new Error(`Failed to upload file: ${error.message}`);
       }
-
-      // Configurar callback de progresso se fornecido
-      if (options?.onProgress) {
-        this.client.trackProgress((info) => {
-          if (info.type === 'upload' && info.name === localPath) {
-            options.onProgress!(info.bytes, info.bytesOverall);
-          }
-        });
-      }
-
-      await this.client.uploadFrom(localPath, normalizedRemotePath);
-
-      // Desabilitar tracking de progresso após operação
-      if (options?.onProgress) {
-        this.client.trackProgress();
-      }
-    } catch (error: any) {
-      // Garantir que tracking seja desabilitado em caso de erro
-      if (options?.onProgress) {
-        this.client.trackProgress();
-      }
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
+    });
   }
 
   /**
    * Faz download de um arquivo
    */
   async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
 
-      // Configurar callback de progresso se fornecido
-      if (options?.onProgress) {
-        this.client.trackProgress((info) => {
-          if (info.type === 'download' && info.name === normalizedRemotePath) {
-            options.onProgress!(info.bytes, info.bytesOverall);
-          }
-        });
+        // Configurar callback de progresso se fornecido
+        if (options?.onProgress) {
+          this.client.trackProgress((info) => {
+            if (info.type === 'download' && info.name === normalizedRemotePath) {
+              options.onProgress!(info.bytes, info.bytesOverall);
+            }
+          });
+        }
+
+        await this.client.downloadTo(localPath, normalizedRemotePath);
+
+        // Desabilitar tracking de progresso após operação
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+      } catch (error: any) {
+        // Garantir que tracking seja desabilitado em caso de erro
+        if (options?.onProgress) {
+          this.client.trackProgress();
+        }
+        throw new Error(`Failed to download file: ${error.message}`);
       }
-
-      await this.client.downloadTo(localPath, normalizedRemotePath);
-
-      // Desabilitar tracking de progresso após operação
-      if (options?.onProgress) {
-        this.client.trackProgress();
-      }
-    } catch (error: any) {
-      // Garantir que tracking seja desabilitado em caso de erro
-      if (options?.onProgress) {
-        this.client.trackProgress();
-      }
-      throw new Error(`Failed to download file: ${error.message}`);
-    }
+    });
   }
 
   /**

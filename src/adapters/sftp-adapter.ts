@@ -20,6 +20,9 @@ export class SftpAdapter extends BaseAdapter {
       autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
       maxReconnectAttempts: config.maxReconnectAttempts || 3,
       reconnectDelay: config.reconnectDelay || 1000,
+      maxRetries: config.maxRetries || 3,
+      retryDelay: config.retryDelay || 1000,
+      retryBackoffMultiplier: config.retryBackoffMultiplier || 2,
       ...config,
     };
 
@@ -130,51 +133,79 @@ export class SftpAdapter extends BaseAdapter {
    * Faz upload de um arquivo
    */
   async upload(localPath: string, remotePath: string, options?: IUploadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
 
-      if (options?.createDir) {
-        const dir = this.getDirectory(normalizedRemotePath);
-        await this.mkdir(dir, true);
-      }
+        if (options?.createDir) {
+          const dir = this.getDirectory(normalizedRemotePath);
+          await this.mkdir(dir, true);
+        }
 
-      if (options?.onProgress) {
-        await this.client.fastPut(localPath, normalizedRemotePath, {
-          step: (transferred: number, _chunk: any, total: number) => {
+        const transferOptions: any = {};
+
+        if (options?.onProgress) {
+          transferOptions.step = (transferred: number, _chunk: any, total: number) => {
             options.onProgress!(transferred, total);
-          },
-        });
-      } else {
-        await this.client.put(localPath, normalizedRemotePath);
+          };
+        }
+
+        if (options?.concurrency !== undefined) {
+          transferOptions.concurrency = options.concurrency;
+        }
+
+        if (options?.chunkSize !== undefined) {
+          transferOptions.chunkSize = options.chunkSize;
+        }
+
+        if (Object.keys(transferOptions).length > 0 || options?.onProgress) {
+          await this.client.fastPut(localPath, normalizedRemotePath, transferOptions);
+        } else {
+          await this.client.put(localPath, normalizedRemotePath);
+        }
+      } catch (error: any) {
+        throw new Error(`Failed to upload file: ${error.message}`);
       }
-    } catch (error: any) {
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
+    });
   }
 
   /**
    * Faz download de um arquivo
    */
   async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
-    this.ensureConnected();
+    return this.executeWithRetry(async () => {
+      this.ensureConnected();
 
-    try {
-      const normalizedRemotePath = this.normalizePath(remotePath);
+      try {
+        const normalizedRemotePath = this.normalizePath(remotePath);
 
-      if (options?.onProgress) {
-        await this.client.fastGet(normalizedRemotePath, localPath, {
-          step: (transferred: number, _chunk: any, total: number) => {
+        const transferOptions: any = {};
+
+        if (options?.onProgress) {
+          transferOptions.step = (transferred: number, _chunk: any, total: number) => {
             options.onProgress!(transferred, total);
-          },
-        });
-      } else {
-        await this.client.fastGet(normalizedRemotePath, localPath);
+          };
+        }
+
+        if (options?.concurrency !== undefined) {
+          transferOptions.concurrency = options.concurrency;
+        }
+
+        if (options?.chunkSize !== undefined) {
+          transferOptions.chunkSize = options.chunkSize;
+        }
+
+        if (Object.keys(transferOptions).length > 0 || options?.onProgress) {
+          await this.client.fastGet(normalizedRemotePath, localPath, transferOptions);
+        } else {
+          await this.client.fastGet(normalizedRemotePath, localPath);
+        }
+      } catch (error: any) {
+        throw new Error(`Failed to download file: ${error.message}`);
       }
-    } catch (error: any) {
-      throw new Error(`Failed to download file: ${error.message}`);
-    }
+    });
   }
 
   /**

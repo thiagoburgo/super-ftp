@@ -175,28 +175,55 @@ interface IConnectionConfig {
 }
 ```
 
-#### Upload/Download Options with Progress
+#### Upload/Download Options with Progress and Concurrency
 
 ```typescript
 interface IUploadOptions {
   createDir?: boolean; // Create directory if it doesn't exist
   mode?: 'binary' | 'ascii'; // Transfer mode
   onProgress?: (transferred: number, total: number) => void; // Progress callback
+  concurrency?: number; // Number of concurrent operations (SFTP only, default: 64)
+  chunkSize?: number; // Chunk size in bytes (SFTP only, default: 32768)
 }
 
 interface IDownloadOptions {
   mode?: 'binary' | 'ascii'; // Transfer mode
   onProgress?: (transferred: number, total: number) => void; // Progress callback
+  concurrency?: number; // Number of concurrent operations (SFTP only, default: 64)
+  chunkSize?: number; // Chunk size in bytes (SFTP only, default: 32768)
 }
 ```
 
-**Example with progress callbacks:**
+**Example with progress callbacks and concurrency (SFTP):**
 
 ```typescript
-await ftp.upload('/local/file.txt', '/remote/file.txt', {
+await sftp.upload('/local/file.txt', '/remote/file.txt', {
   onProgress: (transferred, total) => {
     console.log(`Progress: ${Math.round((transferred / total) * 100)}%`);
   },
+  concurrency: 32, // Use 32 concurrent reads (SFTP only)
+  chunkSize: 65536, // Use 64KB chunks (SFTP only)
+});
+```
+
+#### Retry Configuration
+
+```typescript
+interface IConnectionConfig {
+  // ... other options
+  maxRetries?: number; // Max retry attempts for operations (default: 3)
+  retryDelay?: number; // Initial retry delay in ms (default: 1000)
+  retryBackoffMultiplier?: number; // Exponential backoff multiplier (default: 2)
+}
+```
+
+**Example with retry configuration:**
+
+```typescript
+const ftp = new SuperFtp('ftp://user:pass@host.com:21', {
+  maxRetries: 5,
+  retryDelay: 500,
+  retryBackoffMultiplier: 2, // Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms
 });
 ```
 
@@ -295,6 +322,34 @@ await ftp.downloadDir(
   localDir: string,
   options?: IDownloadOptions
 ): Promise<void>
+
+// Batch transfer multiple files with concurrency control
+await ftp.batchTransfer(
+  transfers: IBatchTransfer[],
+  maxConcurrency?: number
+): Promise<IBatchTransferResult[]>
+```
+
+**Batch Transfer Example:**
+
+```typescript
+const results = await ftp.batchTransfer(
+  [
+    { type: 'upload', localPath: '/local/file1.txt', remotePath: '/remote/file1.txt' },
+    { type: 'upload', localPath: '/local/file2.txt', remotePath: '/remote/file2.txt' },
+    { type: 'download', localPath: '/local/file3.txt', remotePath: '/remote/file3.txt' },
+  ],
+  3, // Max 3 concurrent transfers
+);
+
+// Check results
+results.forEach((result) => {
+  if (result.success) {
+    console.log(`✓ ${result.transfer.type} completed in ${result.duration}ms`);
+  } else {
+    console.error(`✗ ${result.transfer.type} failed: ${result.error?.message}`);
+  }
+});
 ```
 
 ##### Directory Methods
@@ -695,28 +750,55 @@ interface IConnectionConfig {
 }
 ```
 
-#### Opções de Upload/Download com Progresso
+#### Opções de Upload/Download com Progresso e Concorrência
 
 ```typescript
 interface IUploadOptions {
   createDir?: boolean; // Criar diretório se não existir
   mode?: 'binary' | 'ascii'; // Modo de transferência
   onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+  concurrency?: number; // Número de operações concorrentes (apenas SFTP, padrão: 64)
+  chunkSize?: number; // Tamanho do chunk em bytes (apenas SFTP, padrão: 32768)
 }
 
 interface IDownloadOptions {
   mode?: 'binary' | 'ascii'; // Modo de transferência
   onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+  concurrency?: number; // Número de operações concorrentes (apenas SFTP, padrão: 64)
+  chunkSize?: number; // Tamanho do chunk em bytes (apenas SFTP, padrão: 32768)
 }
 ```
 
-**Exemplo com callbacks de progresso:**
+**Exemplo com callbacks de progresso e concorrência (SFTP):**
 
 ```typescript
-await ftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
+await sftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
   onProgress: (transferido, total) => {
     console.log(`Progresso: ${Math.round((transferido / total) * 100)}%`);
   },
+  concurrency: 32, // Usar 32 leituras concorrentes (apenas SFTP)
+  chunkSize: 65536, // Usar chunks de 64KB (apenas SFTP)
+});
+```
+
+#### Configuração de Retry
+
+```typescript
+interface IConnectionConfig {
+  // ... outras opções
+  maxRetries?: number; // Máximo de tentativas de retry (padrão: 3)
+  retryDelay?: number; // Delay inicial para retry em ms (padrão: 1000)
+  retryBackoffMultiplier?: number; // Multiplicador de backoff exponencial (padrão: 2)
+}
+```
+
+**Exemplo com configuração de retry:**
+
+```typescript
+const ftp = new SuperFtp('ftp://user:pass@host.com:21', {
+  maxRetries: 5,
+  retryDelay: 500,
+  retryBackoffMultiplier: 2, // Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms
 });
 ```
 
@@ -815,6 +897,34 @@ await ftp.downloadDir(
   localDir: string,
   options?: IDownloadOptions
 ): Promise<void>
+
+// Transferência em lote de múltiplos arquivos com controle de concorrência
+await ftp.batchTransfer(
+  transfers: IBatchTransfer[],
+  maxConcurrency?: number
+): Promise<IBatchTransferResult[]>
+```
+
+**Exemplo de Transferência em Lote:**
+
+```typescript
+const resultados = await ftp.batchTransfer(
+  [
+    { type: 'upload', localPath: '/local/arquivo1.txt', remotePath: '/remote/arquivo1.txt' },
+    { type: 'upload', localPath: '/local/arquivo2.txt', remotePath: '/remote/arquivo2.txt' },
+    { type: 'download', localPath: '/local/arquivo3.txt', remotePath: '/remote/arquivo3.txt' },
+  ],
+  3, // Máximo de 3 transferências simultâneas
+);
+
+// Verificar resultados
+resultados.forEach((resultado) => {
+  if (resultado.success) {
+    console.log(`✓ ${resultado.transfer.type} concluído em ${resultado.duration}ms`);
+  } else {
+    console.error(`✗ ${resultado.transfer.type} falhou: ${resultado.error?.message}`);
+  }
+});
 ```
 
 ##### Métodos de Diretório
