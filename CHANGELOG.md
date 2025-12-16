@@ -1,3 +1,18 @@
+## 2.0.0 (2025-12-16)
+
+* Merge branch 'develop' ([a72eba5](https://github.com/thiagoburgo/super-ftp/commit/a72eba5))
+* fix: update SuperFtp.downloadBuffer to accept optional options parameter ([e9fd900](https://github.com/thiagoburgo/super-ftp/commit/e9fd900))
+* feat: implement Phase 1 improvements ([fad3ead](https://github.com/thiagoburgo/super-ftp/commit/fad3ead))
+* feat: implement Phase 2 improvements - concurrency control, batch transfers, and retry logic ([f3ff4ef](https://github.com/thiagoburgo/super-ftp/commit/f3ff4ef))
+* feat: implement transfer modes and SFTP compression ([65e3cff](https://github.com/thiagoburgo/super-ftp/commit/65e3cff))
+
+
+### BREAKING CHANGE
+
+* None - all changes are backward compatible
+* None - all changes are backward compatible
+* None - all changes are backward compatible
+
 ## <small>1.1.1 (2025-12-11)</small>
 
 * fix: optimize npm package by excluding unnecessary files ([5867e26](https://github.com/thiagoburgo/super-ftp/commit/5867e26))
