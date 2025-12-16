@@ -15,6 +15,19 @@
 
 Reusable TypeScript library for unified FTP, SFTP, and FTPS management with clean abstractions and maximum code reuse.
 
+### ✨ What's New
+
+**Latest improvements:**
+
+- ✅ **Progress callbacks** - Real-time transfer progress monitoring for uploads and downloads
+- ✅ **Recursive directory transfers** - New `uploadDir()` and `downloadDir()` methods
+- ✅ **Auto-reconnect** - Automatic reconnection on connection failures with configurable retry logic
+- ✅ **Connection health checks** - Monitor connection status with `healthCheck()` and `getConnectionStats()`
+- ✅ **Batch transfers** - Transfer multiple files concurrently with `batchTransfer()` method
+- ✅ **Retry logic** - Exponential backoff retry for recoverable errors
+- ✅ **Transfer modes** - Binary/ASCII mode support for FTP/FTPS transfers
+- ✅ **SFTP compression** - Enable compression for SFTP connections to improve performance
+
 ### 🚀 Features
 
 - ✅ **Full support** for FTP, FTPS, and SFTP
@@ -610,6 +623,19 @@ For questions, bugs, or suggestions, please open an issue in the repository.
 ## 🇧🇷 Português
 
 Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e FTPS com abstrações limpas e máximo reuso de código.
+
+### ✨ Novidades
+
+**Últimas melhorias:**
+
+- ✅ **Callbacks de progresso** - Monitoramento de progresso em tempo real para uploads e downloads
+- ✅ **Transferências recursivas de diretórios** - Novos métodos `uploadDir()` e `downloadDir()`
+- ✅ **Reconexão automática** - Reconexão automática em falhas de conexão com lógica de retry configurável
+- ✅ **Verificações de saúde da conexão** - Monitore o status da conexão com `healthCheck()` e `getConnectionStats()`
+- ✅ **Transferências em lote** - Transfira múltiplos arquivos concorrentemente com o método `batchTransfer()`
+- ✅ **Lógica de retry** - Retry com backoff exponencial para erros recuperáveis
+- ✅ **Modos de transferência** - Suporte a modo Binary/ASCII para transferências FTP/FTPS
+- ✅ **Compressão SFTP** - Habilite compressão para conexões SFTP para melhorar performance
 
 ### 🚀 Características
 
