@@ -5,7 +5,7 @@ import { IFtpFileInfo } from '../../src/interfaces';
  * Test adapter implementation for testing BaseAdapter
  */
 class TestAdapter extends BaseAdapter {
-  async connect(): Promise<void> {
+  protected async _connect(): Promise<void> {
     this.connected = true;
   }
 
@@ -35,6 +35,34 @@ class TestAdapter extends BaseAdapter {
 
   async downloadBuffer(_remotePath: string): Promise<Buffer> {
     return Buffer.from('');
+  }
+
+  async uploadDir(_localDir: string, _remoteDir: string): Promise<void> {
+    // Mock implementation
+  }
+
+  async downloadDir(_remoteDir: string, _localDir: string): Promise<void> {
+    // Mock implementation
+  }
+
+  async healthCheck(): Promise<boolean> {
+    return this.connected;
+  }
+
+  getConnectionStats() {
+    return {
+      connected: this.connected,
+      hasConnectedBefore: false,
+      lastActivity: new Date(),
+      autoReconnect: true,
+      maxReconnectAttempts: 3,
+      reconnectDelay: 1000,
+    };
+  }
+
+  async forceReconnect(): Promise<void> {
+    await this.disconnect();
+    await this.connect();
   }
 
   async mkdir(_path: string, _recursive?: boolean): Promise<void> {

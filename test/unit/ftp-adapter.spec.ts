@@ -19,6 +19,8 @@ describe('FtpAdapter', () => {
       list: jest.fn().mockResolvedValue([]),
       uploadFrom: jest.fn().mockResolvedValue(undefined),
       downloadTo: jest.fn().mockResolvedValue(undefined),
+      uploadFromDir: jest.fn().mockResolvedValue(undefined),
+      downloadToDir: jest.fn().mockResolvedValue(undefined),
       ensureDir: jest.fn().mockResolvedValue(undefined),
       removeDir: jest.fn().mockResolvedValue(undefined),
       remove: jest.fn().mockResolvedValue(undefined),
@@ -269,6 +271,44 @@ describe('FtpAdapter', () => {
       // Assert
       expect(mockClient.downloadTo).toHaveBeenCalled();
       expect(Buffer.isBuffer(result)).toBe(true);
+    });
+  });
+
+  describe('uploadDir', () => {
+    it('should upload directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir');
+
+      // Assert
+      expect(mockClient.uploadFromDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+
+    it('should create remote directory if createDir option is true', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir', { createDir: true });
+
+      // Assert
+      expect(mockClient.ensureDir).toHaveBeenCalledWith('/remote/dir');
+      expect(mockClient.uploadFromDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+  });
+
+  describe('downloadDir', () => {
+    it('should download directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.downloadDir('/remote/dir', '/local/dir');
+
+      // Assert
+      expect(mockClient.downloadToDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
     });
   });
 

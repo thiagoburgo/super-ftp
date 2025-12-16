@@ -49,6 +49,16 @@ export interface IFtpClient {
   downloadBuffer(remotePath: string): Promise<Buffer>;
 
   /**
+   * Faz upload recursivo de um diretório
+   */
+  uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void>;
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  downloadDir(remoteDir: string, localDir: string, options?: IDownloadOptions): Promise<void>;
+
+  /**
    * Cria um diretório
    */
   mkdir(path: string, recursive?: boolean): Promise<void>;
@@ -82,6 +92,28 @@ export interface IFtpClient {
    * Obtém o diretório de trabalho atual
    */
   pwd(): Promise<string>;
+
+  /**
+   * Health check da conexão
+   */
+  healthCheck(): Promise<boolean>;
+
+  /**
+   * Obtém estatísticas da conexão
+   */
+  getConnectionStats(): {
+    connected: boolean;
+    hasConnectedBefore: boolean;
+    lastActivity: Date;
+    autoReconnect: boolean;
+    maxReconnectAttempts: number;
+    reconnectDelay: number;
+  };
+
+  /**
+   * Força uma reconexão manual
+   */
+  forceReconnect(): Promise<void>;
 }
 
 /**
@@ -153,6 +185,18 @@ export interface IConnectionConfig {
    * Se deve usar modo passivo (padrão: true)
    */
   passive?: boolean;
+  /**
+   * Se deve tentar reconectar automaticamente em caso de falha (padrão: true)
+   */
+  autoReconnect?: boolean;
+  /**
+   * Número máximo de tentativas de reconexão (padrão: 3)
+   */
+  maxReconnectAttempts?: number;
+  /**
+   * Delay entre tentativas de reconexão em ms (padrão: 1000)
+   */
+  reconnectDelay?: number;
 }
 
 /**

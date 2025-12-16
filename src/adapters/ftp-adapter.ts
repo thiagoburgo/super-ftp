@@ -9,7 +9,7 @@ import { Readable, Writable } from 'stream';
  */
 export class FtpAdapter extends BaseAdapter {
   private client: Client;
-  private config: IFtpConfig;
+  protected config: IFtpConfig;
 
   constructor(config: IFtpConfig) {
     super();
@@ -18,16 +18,20 @@ export class FtpAdapter extends BaseAdapter {
       connectionTimeout: config.connectionTimeout || DEFAULT_TIMEOUTS.CONNECTION,
       commandTimeout: config.commandTimeout || DEFAULT_TIMEOUTS.COMMAND,
       passive: config.passive !== undefined ? config.passive : true,
+      autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
+      maxReconnectAttempts: config.maxReconnectAttempts || 3,
+      reconnectDelay: config.reconnectDelay || 1000,
       ...config,
     };
 
+    this.initConfig(this.config);
     this.client = new Client(this.config.connectionTimeout);
   }
 
   /**
    * Conecta ao servidor FTP/FTPS
    */
-  async connect(): Promise<void> {
+  protected async _connect(): Promise<void> {
     try {
       const accessOptions: any = {
         host: this.config.host,
@@ -122,8 +126,26 @@ export class FtpAdapter extends BaseAdapter {
         await this.mkdir(dir, true);
       }
 
+      // Configurar callback de progresso se fornecido
+      if (options?.onProgress) {
+        this.client.trackProgress((info) => {
+          if (info.type === 'upload' && info.name === localPath) {
+            options.onProgress!(info.bytes, info.bytesOverall);
+          }
+        });
+      }
+
       await this.client.uploadFrom(localPath, normalizedRemotePath);
+
+      // Desabilitar tracking de progresso após operação
+      if (options?.onProgress) {
+        this.client.trackProgress();
+      }
     } catch (error: any) {
+      // Garantir que tracking seja desabilitado em caso de erro
+      if (options?.onProgress) {
+        this.client.trackProgress();
+      }
       throw new Error(`Failed to upload file: ${error.message}`);
     }
   }
@@ -131,17 +153,32 @@ export class FtpAdapter extends BaseAdapter {
   /**
    * Faz download de um arquivo
    */
-  async download(
-    remotePath: string,
-    localPath: string,
-    _options?: IDownloadOptions,
-  ): Promise<void> {
+  async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
     this.ensureConnected();
 
     try {
       const normalizedRemotePath = this.normalizePath(remotePath);
+
+      // Configurar callback de progresso se fornecido
+      if (options?.onProgress) {
+        this.client.trackProgress((info) => {
+          if (info.type === 'download' && info.name === normalizedRemotePath) {
+            options.onProgress!(info.bytes, info.bytesOverall);
+          }
+        });
+      }
+
       await this.client.downloadTo(localPath, normalizedRemotePath);
+
+      // Desabilitar tracking de progresso após operação
+      if (options?.onProgress) {
+        this.client.trackProgress();
+      }
     } catch (error: any) {
+      // Garantir que tracking seja desabilitado em caso de erro
+      if (options?.onProgress) {
+        this.client.trackProgress();
+      }
       throw new Error(`Failed to download file: ${error.message}`);
     }
   }
@@ -189,6 +226,43 @@ export class FtpAdapter extends BaseAdapter {
       return Buffer.concat(chunks);
     } catch (error: any) {
       throw new Error(`Failed to download buffer: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz upload recursivo de um diretório
+   */
+  async uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+
+      if (options?.createDir) {
+        await this.mkdir(normalizedRemoteDir, true);
+      }
+
+      await this.client.uploadFromDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to upload directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  async downloadDir(
+    remoteDir: string,
+    localDir: string,
+    _options?: IDownloadOptions,
+  ): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+      await this.client.downloadToDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to download directory: ${error.message}`);
     }
   }
 

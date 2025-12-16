@@ -6,7 +6,10 @@ const mockSftpClient = {
   stat: jest.fn().mockResolvedValue(null),
   put: jest.fn().mockResolvedValue(undefined),
   fastGet: jest.fn().mockResolvedValue(undefined),
+  fastPut: jest.fn().mockResolvedValue(undefined),
   get: jest.fn().mockResolvedValue(Buffer.from('content')),
+  uploadDir: jest.fn().mockResolvedValue(undefined),
+  downloadDir: jest.fn().mockResolvedValue(undefined),
   mkdir: jest.fn().mockResolvedValue(undefined),
   rmdir: jest.fn().mockResolvedValue(undefined),
   delete: jest.fn().mockResolvedValue(undefined),
@@ -276,6 +279,44 @@ describe('SftpAdapter', () => {
       // Assert
       expect(mockSftpClient.get).toHaveBeenCalledWith('/remote/file.txt');
       expect(result).toEqual(expectedBuffer);
+    });
+  });
+
+  describe('uploadDir', () => {
+    it('should upload directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir');
+
+      // Assert
+      expect(mockSftpClient.uploadDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+
+    it('should create remote directory if createDir option is true', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.uploadDir('/local/dir', '/remote/dir', { createDir: true });
+
+      // Assert
+      expect(mockSftpClient.mkdir).toHaveBeenCalledWith('/remote/dir', true);
+      expect(mockSftpClient.uploadDir).toHaveBeenCalledWith('/local/dir', '/remote/dir');
+    });
+  });
+
+  describe('downloadDir', () => {
+    it('should download directory recursively', async () => {
+      // Arrange
+      await adapter.connect();
+
+      // Act
+      await adapter.downloadDir('/remote/dir', '/local/dir');
+
+      // Assert
+      expect(mockSftpClient.downloadDir).toHaveBeenCalledWith('/remote/dir', '/local/dir');
     });
   });
 

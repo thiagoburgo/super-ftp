@@ -8,7 +8,7 @@ import { DEFAULT_PORTS, DEFAULT_TIMEOUTS } from '../constants';
  */
 export class SftpAdapter extends BaseAdapter {
   private client: SftpClient;
-  private config: ISftpConfig;
+  protected config: ISftpConfig;
 
   constructor(config: ISftpConfig) {
     super();
@@ -17,16 +17,20 @@ export class SftpAdapter extends BaseAdapter {
       connectionTimeout: config.connectionTimeout || DEFAULT_TIMEOUTS.CONNECTION,
       commandTimeout: config.commandTimeout || DEFAULT_TIMEOUTS.COMMAND,
       passive: true, // SFTP sempre usa modo passivo
+      autoReconnect: config.autoReconnect !== undefined ? config.autoReconnect : true,
+      maxReconnectAttempts: config.maxReconnectAttempts || 3,
+      reconnectDelay: config.reconnectDelay || 1000,
       ...config,
     };
 
+    this.initConfig(this.config);
     this.client = new SftpClient();
   }
 
   /**
    * Conecta ao servidor SFTP
    */
-  async connect(): Promise<void> {
+  protected async _connect(): Promise<void> {
     try {
       const connectionConfig: any = {
         host: this.config.host,
@@ -86,16 +90,12 @@ export class SftpAdapter extends BaseAdapter {
    * Lista arquivos e diretórios
    */
   async list(path?: string): Promise<IFtpFileInfo[]> {
-    this.ensureConnected();
-
-    try {
+    return this.executeWithReconnect(async () => {
       const remotePath = path ? this.normalizePath(path) : '.';
       const files = await this.client.list(remotePath);
 
       return files.map((file: any) => this.mapFileInfo(file, remotePath));
-    } catch (error: any) {
-      throw new Error(`Failed to list directory: ${error.message}`);
-    }
+    });
   }
 
   /**
@@ -140,7 +140,15 @@ export class SftpAdapter extends BaseAdapter {
         await this.mkdir(dir, true);
       }
 
-      await this.client.put(localPath, normalizedRemotePath);
+      if (options?.onProgress) {
+        await this.client.fastPut(localPath, normalizedRemotePath, {
+          step: (transferred: number, _chunk: any, total: number) => {
+            options.onProgress!(transferred, total);
+          },
+        });
+      } else {
+        await this.client.put(localPath, normalizedRemotePath);
+      }
     } catch (error: any) {
       throw new Error(`Failed to upload file: ${error.message}`);
     }
@@ -149,16 +157,21 @@ export class SftpAdapter extends BaseAdapter {
   /**
    * Faz download de um arquivo
    */
-  async download(
-    remotePath: string,
-    localPath: string,
-    _options?: IDownloadOptions,
-  ): Promise<void> {
+  async download(remotePath: string, localPath: string, options?: IDownloadOptions): Promise<void> {
     this.ensureConnected();
 
     try {
       const normalizedRemotePath = this.normalizePath(remotePath);
-      await this.client.fastGet(normalizedRemotePath, localPath);
+
+      if (options?.onProgress) {
+        await this.client.fastGet(normalizedRemotePath, localPath, {
+          step: (transferred: number, _chunk: any, total: number) => {
+            options.onProgress!(transferred, total);
+          },
+        });
+      } else {
+        await this.client.fastGet(normalizedRemotePath, localPath);
+      }
     } catch (error: any) {
       throw new Error(`Failed to download file: ${error.message}`);
     }
@@ -196,6 +209,43 @@ export class SftpAdapter extends BaseAdapter {
       return buffer as Buffer;
     } catch (error: any) {
       throw new Error(`Failed to download buffer: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz upload recursivo de um diretório
+   */
+  async uploadDir(localDir: string, remoteDir: string, options?: IUploadOptions): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+
+      if (options?.createDir) {
+        await this.mkdir(normalizedRemoteDir, true);
+      }
+
+      await this.client.uploadDir(localDir, normalizedRemoteDir);
+    } catch (error: any) {
+      throw new Error(`Failed to upload directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Faz download recursivo de um diretório
+   */
+  async downloadDir(
+    remoteDir: string,
+    localDir: string,
+    _options?: IDownloadOptions,
+  ): Promise<void> {
+    this.ensureConnected();
+
+    try {
+      const normalizedRemoteDir = this.normalizePath(remoteDir);
+      await this.client.downloadDir(normalizedRemoteDir, localDir);
+    } catch (error: any) {
+      throw new Error(`Failed to download directory: ${error.message}`);
     }
   }
 

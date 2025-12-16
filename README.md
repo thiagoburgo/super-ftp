@@ -23,6 +23,10 @@ Reusable TypeScript library for unified FTP, SFTP, and FTPS management with clea
 - ✅ **TypeScript** with complete typing and IntelliSense
 - ✅ **Industry-standard libraries** - based on `basic-ftp` and `ssh2-sftp-client`
 - ✅ **Automatic connection** (lazy connection) - connects only when needed
+- ✅ **Recursive directory transfers** - `uploadDir()` and `downloadDir()` methods
+- ✅ **Progress callbacks** - real-time transfer progress monitoring
+- ✅ **Auto-reconnect** - automatic reconnection on connection failures
+- ✅ **Connection health checks** - monitor and validate connection status
 - ✅ **Recursive operations** - support for nested directories
 - ✅ **Test coverage** - 84%+ coverage with 150+ tests
 - ✅ **Zero bloat** - only essential dependencies
@@ -32,6 +36,39 @@ Reusable TypeScript library for unified FTP, SFTP, and FTPS management with clea
 ```bash
 npm install super-ftp
 ```
+
+### 🔌 Supported Protocols
+
+This library provides unified support for three file transfer protocols:
+
+#### **FTP** (File Transfer Protocol)
+
+- **Port**: 21 (default)
+- **Security**: Unencrypted
+- **Use case**: Internal networks, legacy systems
+- **Connection string**: `ftp://user:pass@host.com:21`
+
+#### **FTPS** (FTP over TLS/SSL)
+
+- **Port**: 21 (default) or 990 (implicit)
+- **Security**: Encrypted using TLS/SSL
+- **Use case**: Secure file transfers over FTP protocol
+- **Connection string**: `ftps://user:pass@host.com:21`
+- **Features**: Supports TLS/SSL options (`secureOptions`)
+
+#### **SFTP** (SSH File Transfer Protocol)
+
+- **Port**: 22 (default)
+- **Security**: Encrypted using SSH
+- **Use case**: Secure file transfers, modern systems
+- **Connection string**: `sftp://user:pass@host.com:22`
+- **Features**: Supports private key authentication, SSH algorithms configuration
+
+**Important Notes:**
+
+- All three protocols share the **same unified API** - switch protocols without changing your code
+- FTPS uses the same adapter as FTP but with `secure: true` flag enabled
+- The protocol is automatically detected from the connection string prefix (`ftp://`, `ftps://`, `sftp://`)
 
 ### 🎯 Basic Usage
 
@@ -119,6 +156,50 @@ const ftp = new SuperFtp(
 );
 ```
 
+### ⚙️ Advanced Configuration Options
+
+#### Connection Options
+
+```typescript
+interface IConnectionConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  connectionTimeout?: number; // Connection timeout in ms (default: 30000)
+  commandTimeout?: number; // Command timeout in ms (default: 30000)
+  passive?: boolean; // Use passive mode (default: true)
+  autoReconnect?: boolean; // Auto-reconnect on failures (default: true)
+  maxReconnectAttempts?: number; // Max reconnect attempts (default: 3)
+  reconnectDelay?: number; // Delay between reconnect attempts in ms (default: 1000)
+}
+```
+
+#### Upload/Download Options with Progress
+
+```typescript
+interface IUploadOptions {
+  createDir?: boolean; // Create directory if it doesn't exist
+  mode?: 'binary' | 'ascii'; // Transfer mode
+  onProgress?: (transferred: number, total: number) => void; // Progress callback
+}
+
+interface IDownloadOptions {
+  mode?: 'binary' | 'ascii'; // Transfer mode
+  onProgress?: (transferred: number, total: number) => void; // Progress callback
+}
+```
+
+**Example with progress callbacks:**
+
+```typescript
+await ftp.upload('/local/file.txt', '/remote/file.txt', {
+  onProgress: (transferred, total) => {
+    console.log(`Progress: ${Math.round((transferred / total) * 100)}%`);
+  },
+});
+```
+
 ### 📚 Complete API
 
 #### SuperFtp
@@ -147,6 +228,22 @@ await ftp.disconnect(): Promise<void>
 
 // Check if connected
 ftp.isConnected(): boolean
+
+// Health check the connection
+await ftp.healthCheck(): Promise<boolean>
+
+// Get connection statistics
+ftp.getConnectionStats(): {
+  connected: boolean;
+  hasConnectedBefore: boolean;
+  lastActivity: Date;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+}
+
+// Force a manual reconnection
+await ftp.forceReconnect(): Promise<void>
 ```
 
 ##### File Methods
@@ -184,6 +281,20 @@ await ftp.uploadBuffer(
 
 // Download to a buffer
 await ftp.downloadBuffer(remotePath: string): Promise<Buffer>
+
+// Upload a directory recursively
+await ftp.uploadDir(
+  localDir: string,
+  remoteDir: string,
+  options?: IUploadOptions
+): Promise<void>
+
+// Download a directory recursively
+await ftp.downloadDir(
+  remoteDir: string,
+  localDir: string,
+  options?: IDownloadOptions
+): Promise<void>
 ```
 
 ##### Directory Methods
@@ -432,6 +543,10 @@ Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e 
 - ✅ **TypeScript** com tipagem completa e IntelliSense
 - ✅ **Bibliotecas de mercado** - baseado em `basic-ftp` e `ssh2-sftp-client`
 - ✅ **Conexão automática** (lazy connection) - conecta apenas quando necessário
+- ✅ **Transferências recursivas de diretórios** - métodos `uploadDir()` e `downloadDir()`
+- ✅ **Callbacks de progresso** - monitoramento de progresso em tempo real
+- ✅ **Reconexão automática** - reconexão automática em falhas de conexão
+- ✅ **Verificações de saúde da conexão** - monitorar e validar status da conexão
 - ✅ **Operações recursivas** - suporte a diretórios aninhados
 - ✅ **Cobertura de testes** - 84%+ de cobertura com 150+ testes
 - ✅ **Zero dependências** - apenas as bibliotecas essenciais
@@ -441,6 +556,39 @@ Biblioteca TypeScript reutilizável para gerenciamento unificado de FTP, SFTP e 
 ```bash
 npm install super-ftp
 ```
+
+### 🔌 Protocolos Suportados
+
+Esta biblioteca fornece suporte unificado para três protocolos de transferência de arquivos:
+
+#### **FTP** (File Transfer Protocol)
+
+- **Porta**: 21 (padrão)
+- **Segurança**: Não criptografado
+- **Casos de uso**: Redes internas, sistemas legados
+- **String de conexão**: `ftp://user:pass@host.com:21`
+
+#### **FTPS** (FTP sobre TLS/SSL)
+
+- **Porta**: 21 (padrão) ou 990 (implícito)
+- **Segurança**: Criptografado usando TLS/SSL
+- **Casos de uso**: Transferências seguras de arquivos sobre protocolo FTP
+- **String de conexão**: `ftps://user:pass@host.com:21`
+- **Recursos**: Suporta opções TLS/SSL (`secureOptions`)
+
+#### **SFTP** (SSH File Transfer Protocol)
+
+- **Porta**: 22 (padrão)
+- **Segurança**: Criptografado usando SSH
+- **Casos de uso**: Transferências seguras de arquivos, sistemas modernos
+- **String de conexão**: `sftp://user:pass@host.com:22`
+- **Recursos**: Suporta autenticação por chave privada, configuração de algoritmos SSH
+
+**Notas Importantes:**
+
+- Todos os três protocolos compartilham a **mesma API unificada** - altere protocolos sem mudar seu código
+- FTPS usa o mesmo adapter do FTP mas com a flag `secure: true` habilitada
+- O protocolo é automaticamente detectado pelo prefixo da string de conexão (`ftp://`, `ftps://`, `sftp://`)
 
 ### 🎯 Uso Básico
 
@@ -528,6 +676,50 @@ const ftp = new SuperFtp(
 );
 ```
 
+### ⚙️ Opções Avançadas de Configuração
+
+#### Opções de Conexão
+
+```typescript
+interface IConnectionConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  connectionTimeout?: number; // Timeout de conexão em ms (padrão: 30000)
+  commandTimeout?: number; // Timeout de comandos em ms (padrão: 30000)
+  passive?: boolean; // Usar modo passivo (padrão: true)
+  autoReconnect?: boolean; // Reconexão automática em falhas (padrão: true)
+  maxReconnectAttempts?: number; // Máximo de tentativas de reconexão (padrão: 3)
+  reconnectDelay?: number; // Delay entre tentativas em ms (padrão: 1000)
+}
+```
+
+#### Opções de Upload/Download com Progresso
+
+```typescript
+interface IUploadOptions {
+  createDir?: boolean; // Criar diretório se não existir
+  mode?: 'binary' | 'ascii'; // Modo de transferência
+  onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+}
+
+interface IDownloadOptions {
+  mode?: 'binary' | 'ascii'; // Modo de transferência
+  onProgress?: (transferred: number, total: number) => void; // Callback de progresso
+}
+```
+
+**Exemplo com callbacks de progresso:**
+
+```typescript
+await ftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
+  onProgress: (transferido, total) => {
+    console.log(`Progresso: ${Math.round((transferido / total) * 100)}%`);
+  },
+});
+```
+
 ### 📚 API Completa
 
 #### SuperFtp
@@ -556,6 +748,22 @@ await ftp.disconnect(): Promise<void>
 
 // Verifica se está conectado
 ftp.isConnected(): boolean
+
+// Verificação de saúde da conexão
+await ftp.healthCheck(): Promise<boolean>
+
+// Obtém estatísticas da conexão
+ftp.getConnectionStats(): {
+  connected: boolean;
+  hasConnectedBefore: boolean;
+  lastActivity: Date;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+}
+
+// Força uma reconexão manual
+await ftp.forceReconnect(): Promise<void>
 ```
 
 ##### Métodos de Arquivo
@@ -593,6 +801,20 @@ await ftp.uploadBuffer(
 
 // Faz download para um buffer
 await ftp.downloadBuffer(remotePath: string): Promise<Buffer>
+
+// Faz upload recursivo de um diretório
+await ftp.uploadDir(
+  localDir: string,
+  remoteDir: string,
+  options?: IUploadOptions
+): Promise<void>
+
+// Faz download recursivo de um diretório
+await ftp.downloadDir(
+  remoteDir: string,
+  localDir: string,
+  options?: IDownloadOptions
+): Promise<void>
 ```
 
 ##### Métodos de Diretório
