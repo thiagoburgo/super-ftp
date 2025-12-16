@@ -33,7 +33,7 @@ class TestAdapter extends BaseAdapter {
     // Mock implementation
   }
 
-  async downloadBuffer(_remotePath: string): Promise<Buffer> {
+  async downloadBuffer(_remotePath: string, _options?: any): Promise<Buffer> {
     return Buffer.from('');
   }
 

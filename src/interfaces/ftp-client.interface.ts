@@ -46,7 +46,7 @@ export interface IFtpClient {
   /**
    * Faz download para um buffer
    */
-  downloadBuffer(remotePath: string): Promise<Buffer>;
+  downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer>;
 
   /**
    * Faz upload recursivo de um diretório
@@ -283,7 +283,13 @@ export interface ISftpConfig extends IConnectionConfig {
     cipher?: string[];
     serverHostKey?: string[];
     hmac?: string[];
+    compress?: string[];
   };
+  /**
+   * Se deve habilitar compressão (padrão: false)
+   * Quando true, adiciona 'zlib@openssh.com' e 'zlib' aos algoritmos de compressão
+   */
+  compress?: boolean;
   /**
    * Se deve verificar o host
    */

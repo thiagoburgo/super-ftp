@@ -130,6 +130,11 @@ export class FtpAdapter extends BaseAdapter {
           await this.mkdir(dir, true);
         }
 
+        // Configurar modo de transferência se fornecido
+        if (options?.mode) {
+          await this.setTransferMode(options.mode);
+        }
+
         // Configurar callback de progresso se fornecido
         if (options?.onProgress) {
           this.client.trackProgress((info) => {
@@ -164,6 +169,11 @@ export class FtpAdapter extends BaseAdapter {
 
       try {
         const normalizedRemotePath = this.normalizePath(remotePath);
+
+        // Configurar modo de transferência se fornecido
+        if (options?.mode) {
+          await this.setTransferMode(options.mode);
+        }
 
         // Configurar callback de progresso se fornecido
         if (options?.onProgress) {
@@ -204,6 +214,11 @@ export class FtpAdapter extends BaseAdapter {
         await this.mkdir(dir, true);
       }
 
+      // Configurar modo de transferência se fornecido
+      if (options?.mode) {
+        await this.setTransferMode(options.mode);
+      }
+
       // Convert Buffer to Readable stream
       const stream = Readable.from(buffer);
       await this.client.uploadFrom(stream, normalizedRemotePath);
@@ -215,11 +230,17 @@ export class FtpAdapter extends BaseAdapter {
   /**
    * Faz download para um buffer
    */
-  async downloadBuffer(remotePath: string): Promise<Buffer> {
+  async downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer> {
     this.ensureConnected();
 
     try {
       const normalizedRemotePath = this.normalizePath(remotePath);
+
+      // Configurar modo de transferência se fornecido
+      if (options?.mode) {
+        await this.setTransferMode(options.mode);
+      }
+
       const chunks: Buffer[] = [];
 
       const writable = new Writable({
@@ -384,6 +405,22 @@ export class FtpAdapter extends BaseAdapter {
       return await this.client.pwd();
     } catch (error: any) {
       throw new Error(`Failed to get current directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Define o modo de transferência (binary ou ascii)
+   */
+  private async setTransferMode(mode: 'binary' | 'ascii'): Promise<void> {
+    try {
+      // basic-ftp expõe send através de client.ftp.send()
+      if (mode === 'ascii') {
+        await (this.client as any).send('TYPE A');
+      } else {
+        await (this.client as any).send('TYPE I');
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to set transfer mode to ${mode}: ${error.message}`);
     }
   }
 

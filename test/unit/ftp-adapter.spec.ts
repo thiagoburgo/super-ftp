@@ -27,6 +27,7 @@ describe('FtpAdapter', () => {
       rename: jest.fn().mockResolvedValue(undefined),
       cd: jest.fn().mockResolvedValue(undefined),
       pwd: jest.fn().mockResolvedValue('/'),
+      send: jest.fn().mockResolvedValue(undefined),
       ftp: {
         passive: true,
       } as any,
@@ -230,6 +231,18 @@ describe('FtpAdapter', () => {
       // Assert
       expect(mockClient.downloadTo).toHaveBeenCalledWith('/local/file.txt', '/remote/file.txt');
     });
+
+    it('should set transfer mode to ASCII when specified', async () => {
+      // Arrange
+      await adapter.connect();
+      mockClient.send = jest.fn().mockResolvedValue(undefined);
+
+      // Act
+      await adapter.download('/remote/file.txt', '/local/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(mockClient.send).toHaveBeenCalledWith('TYPE A');
+    });
   });
 
   describe('uploadBuffer', () => {
@@ -271,6 +284,28 @@ describe('FtpAdapter', () => {
       // Assert
       expect(mockClient.downloadTo).toHaveBeenCalled();
       expect(Buffer.isBuffer(result)).toBe(true);
+    });
+
+    it('should set transfer mode to ASCII when specified', async () => {
+      // Arrange
+      await adapter.connect();
+      const chunks: Buffer[] = [];
+      const mockWrite = jest.fn((chunk: Buffer, _encoding: string, callback: () => void) => {
+        chunks.push(chunk);
+        callback();
+      });
+      jest.spyOn(Writable, 'Writable').mockImplementation((_options: any) => {
+        return {
+          write: mockWrite,
+        } as any;
+      });
+      mockClient.send = jest.fn().mockResolvedValue(undefined);
+
+      // Act
+      await adapter.downloadBuffer('/remote/file.txt', { mode: 'ascii' });
+
+      // Assert
+      expect(mockClient.send).toHaveBeenCalledWith('TYPE A');
     });
   });
 

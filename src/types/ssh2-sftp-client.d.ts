@@ -16,11 +16,13 @@ declare module 'ssh2-sftp-client' {
     password?: string;
     privateKey?: string | Buffer;
     passphrase?: string;
+    compress?: boolean;
     algorithms?: {
       kex?: string[];
       cipher?: string[];
       serverHostKey?: string[];
       hmac?: string[];
+      compress?: string[];
     };
     strictVendor?: boolean;
     readyTimeout?: number;

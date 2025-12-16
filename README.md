@@ -62,7 +62,7 @@ This library provides unified support for three file transfer protocols:
 - **Security**: Encrypted using SSH
 - **Use case**: Secure file transfers, modern systems
 - **Connection string**: `sftp://user:pass@host.com:22`
-- **Features**: Supports private key authentication, SSH algorithms configuration
+- **Features**: Supports private key authentication, SSH algorithms configuration, compression
 
 **Important Notes:**
 
@@ -130,6 +130,11 @@ const sftp = new SuperFtp('sftp://user:pass@host.com:22', {
   algorithms: {
     kex: ['diffie-hellman-group-exchange-sha256'],
   },
+});
+
+// For SFTP with compression enabled
+const sftpCompressed = new SuperFtp('sftp://user:pass@host.com:22', {
+  compress: true, // Enable compression for better performance on slow connections
 });
 ```
 
@@ -204,6 +209,22 @@ await sftp.upload('/local/file.txt', '/remote/file.txt', {
   concurrency: 32, // Use 32 concurrent reads (SFTP only)
   chunkSize: 65536, // Use 64KB chunks (SFTP only)
 });
+```
+
+**Example with transfer mode (FTP/FTPS):**
+
+```typescript
+// Upload text file in ASCII mode (line ending conversion)
+await ftp.upload('/local/file.txt', '/remote/file.txt', {
+  mode: 'ascii', // Converts line endings automatically
+});
+
+// Upload binary file (images, executables, etc.)
+await ftp.upload('/local/image.jpg', '/remote/image.jpg', {
+  mode: 'binary', // No conversion, exact byte transfer
+});
+
+// Note: SFTP always uses binary mode. ASCII mode option is ignored with a warning.
 ```
 
 #### Retry Configuration
@@ -637,7 +658,7 @@ Esta biblioteca fornece suporte unificado para três protocolos de transferênci
 - **Segurança**: Criptografado usando SSH
 - **Casos de uso**: Transferências seguras de arquivos, sistemas modernos
 - **String de conexão**: `sftp://user:pass@host.com:22`
-- **Recursos**: Suporta autenticação por chave privada, configuração de algoritmos SSH
+- **Recursos**: Suporta autenticação por chave privada, configuração de algoritmos SSH, compressão
 
 **Notas Importantes:**
 
@@ -705,6 +726,11 @@ const sftp = new SuperFtp('sftp://user:pass@host.com:22', {
   algorithms: {
     kex: ['diffie-hellman-group-exchange-sha256'],
   },
+});
+
+// Para SFTP com compressão habilitada
+const sftpCompressed = new SuperFtp('sftp://user:pass@host.com:22', {
+  compress: true, // Habilita compressão para melhor performance em conexões lentas
 });
 ```
 
@@ -779,6 +805,22 @@ await sftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
   concurrency: 32, // Usar 32 leituras concorrentes (apenas SFTP)
   chunkSize: 65536, // Usar chunks de 64KB (apenas SFTP)
 });
+```
+
+**Exemplo com modo de transferência (FTP/FTPS):**
+
+```typescript
+// Upload de arquivo texto em modo ASCII (conversão de quebras de linha)
+await ftp.upload('/local/arquivo.txt', '/remote/arquivo.txt', {
+  mode: 'ascii', // Converte quebras de linha automaticamente
+});
+
+// Upload de arquivo binário (imagens, executáveis, etc.)
+await ftp.upload('/local/imagem.jpg', '/remote/imagem.jpg', {
+  mode: 'binary', // Sem conversão, transferência exata de bytes
+});
+
+// Nota: SFTP sempre usa modo binary. A opção ASCII é ignorada com um aviso.
 ```
 
 #### Configuração de Retry

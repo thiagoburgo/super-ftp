@@ -50,8 +50,23 @@ export class SftpAdapter extends BaseAdapter {
         }
       }
 
+      // Configurar compressão
+      if (this.config.compress) {
+        connectionConfig.compress = true;
+        // Adicionar algoritmos de compressão se não especificados
+        if (!connectionConfig.algorithms) {
+          connectionConfig.algorithms = {};
+        }
+        if (!connectionConfig.algorithms.compress) {
+          connectionConfig.algorithms.compress = ['zlib@openssh.com', 'zlib', 'none'];
+        }
+      }
+
       if (this.config.algorithms) {
-        connectionConfig.algorithms = this.config.algorithms;
+        connectionConfig.algorithms = {
+          ...connectionConfig.algorithms,
+          ...this.config.algorithms,
+        };
       }
 
       if (this.config.strictVendor !== undefined) {
@@ -137,6 +152,13 @@ export class SftpAdapter extends BaseAdapter {
       this.ensureConnected();
 
       try {
+        // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+        if (options?.mode === 'ascii') {
+          console.warn(
+            'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+          );
+        }
+
         const normalizedRemotePath = this.normalizePath(remotePath);
 
         if (options?.createDir) {
@@ -179,6 +201,13 @@ export class SftpAdapter extends BaseAdapter {
       this.ensureConnected();
 
       try {
+        // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+        if (options?.mode === 'ascii') {
+          console.warn(
+            'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+          );
+        }
+
         const normalizedRemotePath = this.normalizePath(remotePath);
 
         const transferOptions: any = {};
@@ -215,6 +244,13 @@ export class SftpAdapter extends BaseAdapter {
     this.ensureConnected();
 
     try {
+      // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+      if (options?.mode === 'ascii') {
+        console.warn(
+          'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+        );
+      }
+
       const normalizedRemotePath = this.normalizePath(remotePath);
 
       if (options?.createDir) {
@@ -231,10 +267,17 @@ export class SftpAdapter extends BaseAdapter {
   /**
    * Faz download para um buffer
    */
-  async downloadBuffer(remotePath: string): Promise<Buffer> {
+  async downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer> {
     this.ensureConnected();
 
     try {
+      // SFTP sempre usa modo binary - avisar se ASCII for solicitado
+      if (options?.mode === 'ascii') {
+        console.warn(
+          'SFTP protocol always uses binary mode. ASCII mode is not supported. The file will be transferred in binary mode.',
+        );
+      }
+
       const normalizedRemotePath = this.normalizePath(remotePath);
       const buffer = await this.client.get(normalizedRemotePath);
       return buffer as Buffer;

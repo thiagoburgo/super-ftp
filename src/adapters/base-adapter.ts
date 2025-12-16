@@ -341,7 +341,7 @@ export abstract class BaseAdapter implements IFtpClient {
   /**
    * Faz download para um buffer
    */
-  abstract downloadBuffer(remotePath: string): Promise<Buffer>;
+  abstract downloadBuffer(remotePath: string, options?: IDownloadOptions): Promise<Buffer>;
 
   /**
    * Faz upload recursivo de um diretório
